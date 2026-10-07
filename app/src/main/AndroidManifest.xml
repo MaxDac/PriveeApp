@@ -26,8 +26,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Opens a conversation with privee://share/<session name> on the selected server.
-                 Servers are chosen by the user, so https share links can't be claimed here. -->
+            <!-- privee://share/<session name>?server=<server URL>: opens a conversation, directly only
+                 when the server is the selected one. https share links of arbitrary servers can't be claimed. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

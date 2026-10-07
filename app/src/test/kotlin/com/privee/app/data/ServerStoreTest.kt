@@ -40,9 +40,11 @@ class ServerStoreTest {
     }
 
     @Test
-    fun `displays the name, or the host without one`() {
-        assertEquals("My Privee", ServerConfig("https://chat.example.org", "My Privee").displayName)
-        assertEquals("chat.example.org", ServerConfig("https://chat.example.org/privee", null).displayName)
+    fun `labels the server by its address, never its name`() {
+        assertEquals("chat.example.org", ServerConfig("https://chat.example.org", "Official Privee").label)
+        assertEquals("example.org/privee", ServerConfig("https://example.org/privee", null).label)
+        assertEquals("chat.example.org:8443", ServerConfig("https://chat.example.org:8443", null).label)
+        assertEquals("http://10.0.2.2:4000", ServerConfig("http://10.0.2.2:4000", null).label)
     }
 
     @Test

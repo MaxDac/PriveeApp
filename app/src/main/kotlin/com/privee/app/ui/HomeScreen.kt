@@ -94,7 +94,11 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
     fun share() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Talk to me privately on Privee: ${session.server.shareLink(ownName)}")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                "Talk to me privately on Privee: ${session.server.shareLink(ownName)}\n" +
+                    "In the Privee app: ${session.server.appLink(ownName)}",
+            )
         }
         context.startActivity(Intent.createChooser(intent, "Share your session"))
     }
@@ -160,7 +164,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                             ConnectionDot(connected)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (connected) "Connected to ${session.server.config.displayName}" else "Connecting…",
+                                if (connected) "Connected to ${session.server.config.label}" else "Connecting…",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.testTag("server-status"),

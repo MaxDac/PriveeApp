@@ -120,6 +120,18 @@ class FetchServerInfoTest {
     }
 
     @Test
+    fun `does not follow redirects`() = withServer { server ->
+        server.enqueue(MockResponse.Builder().code(302).addHeader("Location", "/elsewhere/api/app/info").build())
+        server.enqueue(
+            MockResponse.Builder().code(200).body("""{"service":"privee","api_version":1,"name":"Elsewhere"}""").build(),
+        )
+        val base = server.url("/").toString()
+        val redirected = assertThrows<ServerCheckException> { runBlocking { fetchServerInfo(base, client) } }
+        assertEquals(ServerProblem.NotPrivee, redirected.problem)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun `reports unreachable hosts`() {
         val server = MockWebServer()
         server.start()

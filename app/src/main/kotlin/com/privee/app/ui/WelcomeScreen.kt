@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun WelcomeScreen(
-    serverName: String,
+    serverLabel: String,
+    serverName: String?,
     pendingPeer: String?,
     onRegister: () -> Unit,
     onLogIn: () -> Unit,
@@ -75,12 +76,21 @@ fun WelcomeScreen(
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                "Server: $serverName",
+                "Server: $serverLabel",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.testTag("server-name"),
             )
+            // Chosen by the server itself, so only a secondary hint next to the address.
+            serverName?.let {
+                Text(
+                    "Calls itself “$it”",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
             TextButton(onClick = onChangeServer, modifier = Modifier.testTag("change-server")) {
                 Text("Change server")
             }
