@@ -1,0 +1,40 @@
+Privee for Android
+Copyright (C) 2024-2026 Massimiliano D'Acunzo and the Privee contributors
+
+SPDX-License-Identifier: AGPL-3.0-only
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3 only, as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+The full licence text is in the LICENSE file.
+
+What this means for forks and modified versions
+-----------------------------------------------
+
+Privee must stay free and open source software. The AGPL-3.0 guarantees it:
+
+* Any copy, fork or modified version you distribute (as source code or as an
+  APK, in any store) must be licensed under the AGPL-3.0 as a whole, with its
+  complete corresponding source code.
+* If you offer a modified version for people to use over a network, you must
+  offer them the complete source code of the version you run (AGPL-3.0,
+  section 13).
+* You may not add further restrictions, relicense the code under proprietary
+  or non-copyleft terms, or incorporate it into closed-source software.
+
+The app connects to a Privee server chosen by the user. The server
+(https://github.com/MaxDac/Privee) is also licensed under the AGPL-3.0-only and
+must offer its source code to its users.
+
+Third-party components
+----------------------
+
+* libsignal (https://github.com/signalapp/libsignal), used through its Android
+  library org.signal:libsignal-android, is Copyright Signal Messenger, LLC and
+  licensed under the AGPL-3.0-only.
+* Other dependencies are listed in gradle/libs.versions.toml, each under its
+  own licence.
