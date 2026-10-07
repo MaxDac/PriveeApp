@@ -43,6 +43,9 @@ class AppContainer(private val context: Context) {
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Never re-send the token or the recovery phrase elsewhere: a 3xx is an error.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     private val servers = ServerStore(EncryptedFileStorage(File(context.noBackupFilesDir, "server.bin")))

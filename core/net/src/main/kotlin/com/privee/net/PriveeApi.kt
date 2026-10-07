@@ -45,8 +45,9 @@ open class ApiException(
 class UnauthorizedException(error: String?) : ApiException(401, error)
 
 /** Client of the Privee native app REST API (`/api/app`). */
-class PriveeApi(baseUrl: String, private val client: OkHttpClient) {
+class PriveeApi(baseUrl: String, client: OkHttpClient) {
     private val base: HttpUrl = baseUrl.toHttpUrl()
+    private val client = client.withoutRedirects()
 
     suspend fun register(sessionName: String?, recoveryPhrase: String?, quick: Boolean): AuthResult {
         val body = buildJsonObject {

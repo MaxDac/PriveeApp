@@ -113,7 +113,7 @@ suspend fun fetchServerInfo(baseUrl: String, client: OkHttpClient): ServerInfo {
     val url = base.newBuilder().addPathSegments("api/app/info").build()
     val request = Request.Builder().url(url).header("Accept", "application/json").get().build()
     // A redirect could hand the check to another host: the address must answer itself.
-    val noRedirects = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+    val noRedirects = client.withoutRedirects()
     val body = try {
         withContext(Dispatchers.IO) {
             noRedirects.newCall(request).execute().use { response ->
