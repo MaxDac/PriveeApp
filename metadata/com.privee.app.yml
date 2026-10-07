@@ -1,0 +1,38 @@
+Categories:
+  - Messaging
+  - Security
+License: AGPL-3.0-only
+AuthorName: MaxDac
+SourceCode: https://github.com/MaxDac/PriveeApp
+IssueTracker: https://github.com/MaxDac/PriveeApp/issues
+Changelog: https://github.com/MaxDac/PriveeApp/releases
+
+AutoName: Privee
+
+RepoType: git
+Repo: https://github.com/MaxDac/PriveeApp.git
+Binaries: https://github.com/MaxDac/PriveeApp/releases/download/v%v/Privee-%v.apk
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    subdir: app
+    sudo:
+      - apt-get update
+      - apt-get install -y cmake curl git make ninja-build protobuf-compiler python3
+    gradle:
+      - yes
+    prebuild: bash -x ../libsignal/scripts/build-libsignal.sh fetch
+    build: NDK_ROOT=$$NDK$$ bash -x ../libsignal/scripts/build-libsignal.sh build
+    ndk: 28.2.13676358
+    gradleprops:
+      - libsignalBuiltFromSource
+
+AllowedAPKSigningKeys: ea586e3f2deaf1ff3c507f8eae4ce3363c9f892d787da19d0003817ee58892f9
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$
+UpdateCheckData: version.properties|versionCode=(\d+)|.|versionName=(\S+)
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1

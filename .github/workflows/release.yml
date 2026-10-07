@@ -1,82 +1,419 @@
-name: Release APK
+name: Release
 
-# On demand only: Actions → "Release APK" → Run workflow.
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag to create, e.g. v0.1.0 (leave empty to only upload a workflow artifact)"
+      release_type:
+        description: "Publish a non-production pre-release or a stable release"
+        required: true
+        default: prerelease
+        type: choice
+        options:
+          - prerelease
+          - stable
+      version:
+        description: "X.Y.Z or X.Y.Z-preview.N; leave blank to select the next version"
         required: false
         type: string
+      publish:
+        description: "Sign and publish a GitHub Release (requires the release environment)"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: privee-release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version_name: ${{ steps.version.outputs.version_name }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: platform-tools platforms;android-37.0 build-tools;36.0.0
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      - name: Test
-        run: ./gradlew test
-
-      # Signing is optional: without the secrets the APK is unsigned (as F-Droid builds it).
-      - name: Decode keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Require the main branch
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
-            echo "PRIVEE_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          else
-            echo "::warning::KEYSTORE_BASE64 is not set, building an unsigned APK."
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "::error::Release runs must target main."
+            exit 1
           fi
 
-      - name: Build release APK
-        env:
-          PRIVEE_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          PRIVEE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          PRIVEE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease
-
-      - name: Collect APK
-        id: apk
-        run: |
-          apk=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
-          name="privee-${{ inputs.tag || github.sha }}.apk"
-          cp "$apk" "$name"
-          sha256sum "$name" > "$name.sha256"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          name: privee-release-apk
-          path: |
-            ${{ steps.apk.outputs.name }}
-            ${{ steps.apk.outputs.name }}.sha256
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Create GitHub release
-        if: inputs.tag != ''
+      - name: Resolve release version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          # The release must be declared in version.properties by a merged release-bump PR
+          # (scripts/release_version.py --prepare): F-Droid's checkupdates reads it at the tag.
+          python3 scripts/release_version.py \
+            --repository "$GITHUB_REPOSITORY" --source-sha "$GITHUB_SHA" \
+            --requested-version "$REQUESTED_VERSION" --release-type "$RELEASE_TYPE" \
+            --version-properties version.properties --output release-metadata.json
+
+      - name: Test release tooling
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      # A release-bump merge to main already ran the Reproducibility workflow (two
+      # independent builds, byte-identical, plus the release check tasks) and CI (JVM unit
+      # tests) on this exact commit. Reuse that APK; otherwise build it here.
+      - name: Find a verified build of this commit
+        id: verified
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ inputs.tag }}" \
-            "${{ steps.apk.outputs.name }}" "${{ steps.apk.outputs.name }}.sha256" \
-            --target "${{ github.sha }}" --title "Privee ${{ inputs.tag }}" --generate-notes
+          python3 -I - <<'PY'
+          import json, os, subprocess
+
+          repo, sha = os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_SHA"]
+
+          def successful_runs(workflow):
+              runs = json.loads(subprocess.check_output(["gh", "api",
+                  f"repos/{repo}/actions/workflows/{workflow}/runs?head_sha={sha}&status=success&per_page=100"], text=True))
+              return [r for r in runs["workflow_runs"]
+                      if r["head_sha"] == sha and r["head_branch"] == "main"
+                      and r["event"] in ("push", "workflow_dispatch")
+                      and r["path"] == f".github/workflows/{workflow}"
+                      and r["head_repository"]["full_name"] == repo]
+
+          def artifact(run):
+              artifacts = json.loads(subprocess.check_output(["gh", "api",
+                  f"repos/{repo}/actions/runs/{run['id']}/artifacts?name=verified-release-{sha}"], text=True))
+              return any(not a["expired"] for a in artifacts["artifacts"])
+
+          reproducibility = sorted((r for r in successful_runs("reproducibility.yml") if artifact(r)),
+                                   key=lambda r: r["run_number"], reverse=True)
+          ci = successful_runs("ci.yml")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output, open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              if reproducibility and ci:
+                  run = reproducibility[0]
+                  output.write(f"run_id={run['id']}\n")
+                  summary.write(f"Reusing the verified APK from [Reproducibility run {run['id']}]({run['html_url']}) "
+                                f"(CI passed in [run {ci[0]['id']}]({ci[0]['html_url']})).\n\n")
+              else:
+                  output.write("run_id=\n")
+                  summary.write("No verified Reproducibility build and passing CI for this commit; building here.\n\n")
+          PY
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        if: steps.verified.outputs.run_id != ''
+        with:
+          name: verified-release-${{ github.sha }}
+          path: rb-output
+          run-id: ${{ steps.verified.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Check the verified build
+        if: steps.verified.outputs.run_id != ''
+        run: |
+          (cd rb-output && sha256sum --check --strict SHA256SUMS)
+          cat rb-output/build-env.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Free disk space for the buildserver image
+        if: steps.verified.outputs.run_id == ''
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
+
+      # Built exactly like F-Droid's buildserver, so F-Droid can reproduce this APK and
+      # publish it with our signature (fdroiddata Binaries + AllowedAPKSigningKeys).
+      - name: Build the reproducible release like F-Droid
+        if: steps.verified.outputs.run_id == ''
+        run: |
+          bash scripts/fdroid-rb-docker.sh rb-output \
+            --check-task :app:testDebugUnitTest --check-task :core:net:test --check-task :core:signal:test \
+            --check-task :app:lintRelease
+          cat rb-output/build-env.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'build-tools;36.0.0'
+
+      - name: Verify release APK
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: |
+          python3 scripts/verify_release_apk.py \
+            --apk rb-output/unsigned.apk \
+            --version-name "$VERSION_NAME" --version-code "$VERSION_CODE" \
+            --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+          mkdir release-staging
+          cp rb-output/unsigned.apk release-staging/unsigned.apk
+          cp rb-output/build-env.txt release-metadata.json LICENSE release-staging/
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unsigned-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-staging/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Explain non-publishing run
+        if: ${{ !inputs.publish }}
+        run: |
+          echo "Build-only run: the unsigned APK artifact is not installable. No signing key was used and no tag or release was created." >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION_NAME: ${{ needs.build.outputs.version_name }}
+      VERSION_CODE: ${{ needs.build.outputs.version_code }}
+      TAG: ${{ needs.build.outputs.tag }}
+      PREVIOUS_TAG: ${{ needs.build.outputs.previous_tag }}
+      PRERELEASE: ${{ needs.build.outputs.prerelease }}
+    steps:
+      - name: Require publication approval
+        env:
+          PUBLICATION_APPROVED: ${{ vars.RELEASE_PUBLICATION_APPROVED }}
+        run: |
+          if [[ "$PUBLICATION_APPROVED" != true ]]; then
+            echo "::error::Review licensing and configure RELEASE_PUBLICATION_APPROVED=true in the release environment."
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: unsigned-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: incoming
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: 'platform-tools build-tools;36.0.0'
+
+      - name: Install apksigcopier
+        run: sudo apt-get update && sudo apt-get install -y apksigcopier
+
+      - name: Sign and verify APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          EXPECTED_CERTIFICATE: ${{ vars.RELEASE_CERTIFICATE_SHA256 }}
+        run: |
+          python3 -I - <<'PY'
+          import base64, hashlib, json, os, pathlib, re, shutil, subprocess, tempfile
+
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+
+          def run(*args):
+              return subprocess.check_output(args, text=True)
+
+          version = os.environ["VERSION_NAME"]
+          code = os.environ["VERSION_CODE"]
+          tag = os.environ["TAG"]
+          require(re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", version), "Invalid version")
+          suffix = version.partition("-")[2].split(".")
+          require(not any(p.isdigit() and len(p) > 1 and p.startswith("0") for p in suffix), "Invalid prerelease identifier")
+          require(os.environ["PRERELEASE"] in ("true", "false"), "Invalid release type")
+          prerelease = os.environ["PRERELEASE"] == "true"
+          require(prerelease == ("-" in version), "Release type must match version suffix")
+          require(re.fullmatch(r"[1-9][0-9]*", code) and int(code) <= 2100000000, "Invalid version code")
+          require(tag == "v" + version, "Invalid tag")
+          metadata = json.loads(pathlib.Path("incoming/release-metadata.json").read_text())
+          expected = {"schemaVersion": 1, "applicationId": "com.privee.app", "versionName": version,
+                      "versionCode": int(code), "tag": tag, "sourceSha": os.environ["GITHUB_SHA"]}
+          require(all(metadata.get(k) == v for k, v in expected.items()), "Release metadata mismatch")
+          require(metadata.get("isPrerelease") is prerelease, "Release metadata type mismatch")
+          for name in ("KEYSTORE_BASE64", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD", "EXPECTED_CERTIFICATE"):
+              require(bool(os.environ.get(name)), "Missing signing configuration: " + name)
+          certificate = os.environ["EXPECTED_CERTIFICATE"].replace(":", "").lower()
+          require(re.fullmatch(r"[0-9a-f]{64}", certificate), "Invalid expected certificate fingerprint")
+          previous = metadata["previousSigningCertificateSha256"]
+          require(previous is None or previous == certificate, "Signing key differs from published releases; rotation is not supported")
+          tools = pathlib.Path(os.environ["ANDROID_HOME"]) / "build-tools/36.0.0"
+          output = pathlib.Path("release-assets")
+          output.mkdir()
+          # fdroiddata's Binaries URL expects this asset name: releases/download/v%v/Privee-%v.apk
+          apk = output / ("Privee-" + version + ".apk")
+          with tempfile.TemporaryDirectory(prefix="privee-signing-", dir=os.environ["RUNNER_TEMP"]) as temp:
+              keystore = pathlib.Path(temp) / "release.keystore"
+              keystore.write_bytes(base64.b64decode(os.environ["KEYSTORE_BASE64"], validate=True))
+              keystore.chmod(0o600)
+              # Sign the reproducible APK as is: F-Droid verifies that our APK is its own build
+              # plus a signature (apksigcopier), so the ZIP must not be realigned or re-padded.
+              subprocess.run([str(tools / "zipalign"), "-c", "-P", "16", "4", "incoming/unsigned.apk"], check=True)
+              subprocess.run([str(tools / "apksigner"), "sign", "--alignment-preserved",
+                              "--v1-signing-enabled", "false", "--v2-signing-enabled", "true",
+                              "--v3-signing-enabled", "true", "--v4-signing-enabled", "false", "--ks", str(keystore),
+                              "--ks-key-alias", os.environ["KEY_ALIAS"], "--ks-pass", "env:KEYSTORE_PASSWORD",
+                              "--key-pass", "env:KEY_PASSWORD", "--out", str(apk), "incoming/unsigned.apk"], check=True)
+          verification = run(str(tools / "apksigner"), "verify", "--verbose", "--print-certs", str(apk))
+          signers = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)$", verification, re.MULTILINE)
+          require(len(signers) == 1 and signers[0].lower() == certificate, "APK signing certificate mismatch")
+          subprocess.run([str(tools / "zipalign"), "-c", "-P", "16", "4", str(apk)], check=True)
+          subprocess.run(["apksigcopier", "compare", str(apk), "--unsigned", "incoming/unsigned.apk"], check=True,
+                         env={**os.environ, "PATH": str(tools) + os.pathsep + os.environ["PATH"]})
+          badging = run(str(tools / "aapt2"), "dump", "badging", str(apk))
+          package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.MULTILINE)
+          require(package and package.groups() == ("com.privee.app", code, version), "Signed APK identity mismatch")
+          require(not re.search(r"^application-debuggable(?:\s|$)", badging, re.MULTILINE), "Debuggable APK")
+          manifest = {**expected, "apk": apk.name, "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
+                      "signingCertificateSha256": certificate}
+          (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          shutil.copyfile("incoming/LICENSE", output / "LICENSE")
+          files = (apk, output / "release-manifest.json", output / "LICENSE")
+          (output / "SHA256SUMS").write_text("".join(hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n" for p in files))
+          PY
+
+      - name: Create and publish release without replacing existing versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, tempfile
+
+          def gh(*args):
+              return subprocess.check_output(["gh", *args], text=True)
+
+          def pages(endpoint):
+              return [item for page in json.loads(gh("api", "--paginate", "--slurp", endpoint)) for item in page]
+
+          repo, tag = os.environ["GITHUB_REPOSITORY"], os.environ["TAG"]
+          version, sha = os.environ["VERSION_NAME"], os.environ["GITHUB_SHA"]
+          if os.environ["PRERELEASE"] not in ("true", "false"):
+              raise RuntimeError("Invalid release type")
+          prerelease = os.environ["PRERELEASE"] == "true"
+          if prerelease != ("-" in version):
+              raise RuntimeError("Release type does not match version suffix")
+          if any(t["name"] == tag for t in pages(f"repos/{repo}/tags?per_page=100")):
+              raise RuntimeError("Tag already exists; inspect the previous run. Never overwrite a release.")
+          if any(r["tag_name"] == tag for r in pages(f"repos/{repo}/releases?per_page=100")):
+              raise RuntimeError("Release or draft already exists; inspect it before recovery.")
+          assets = pathlib.Path("release-assets")
+          manifest = json.loads((assets / "release-manifest.json").read_text())
+          paths = [assets / manifest["apk"], assets / "SHA256SUMS", assets / "release-manifest.json", assets / "LICENSE"]
+          notes = pathlib.Path("release-notes.txt")
+          notes.write_text(
+              ("Pre-release: not production-ready.\n\n" if prerelease else "") +
+              f"Signed APK for ARM64 (arm64-v8a) devices with Android 8.0+. Version code: {manifest['versionCode']}.\n\n"
+              "libsignal, including its native library, is built from source at the pinned commit in "
+              "`libsignal/source.lock.json`.\n\n"
+              f"License: AGPL-3.0-only for Privee code; third-party components retain their licenses. "
+              f"[Corresponding source](https://github.com/{repo}/archive/refs/tags/{tag}.tar.gz) "
+              f"at commit `{sha}`. This APK is a reproducible build: `scripts/fdroid-rb-docker.sh` at the tag "
+              f"rebuilds it byte for byte apart from the signature; "
+              f"[build instructions](https://github.com/{repo}/blob/{tag}/docs/RELEASING.md).\n\n"
+              f"Signing certificate SHA-256: `{manifest['signingCertificateSha256']}`.\n"
+          )
+          # Creating a ref is atomic: a concurrent creator fails rather than moving it.
+          gh("api", "--method", "POST", f"repos/{repo}/git/refs", "-f", f"ref=refs/tags/{tag}", "-f", f"sha={sha}")
+          args = ["release", "create", tag, "--repo", repo, "--verify-tag", "--draft",
+                  "--title", f"Privee {version}", "--notes-file", str(notes), "--generate-notes"]
+          if prerelease:
+              args += ["--prerelease", "--latest=false"]
+          if os.environ["PREVIOUS_TAG"]:
+              args += ["--notes-start-tag", os.environ["PREVIOUS_TAG"]]
+          gh(*args, *(str(p) for p in paths))
+          release = json.loads(gh("release", "view", tag, "--repo", repo, "--json", "isDraft,isPrerelease,assets"))
+          if not release["isDraft"] or release["isPrerelease"] is not prerelease or {a["name"] for a in release["assets"]} != {p.name for p in paths}:
+              raise RuntimeError("Draft type or asset set mismatch; leaving it unpublished for inspection.")
+          with tempfile.TemporaryDirectory(prefix="privee-release-check-") as temp:
+              gh("release", "download", tag, "--repo", repo, "--dir", temp)
+              for path in paths:
+                  if hashlib.sha256(path.read_bytes()).digest() != hashlib.sha256((pathlib.Path(temp) / path.name).read_bytes()).digest():
+                      raise RuntimeError("Uploaded asset checksum mismatch; draft remains unpublished.")
+          gh("release", "edit", tag, "--repo", repo, "--draft=false",
+             f"--prerelease={str(prerelease).lower()}", f"--latest={str(not prerelease).lower()}")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"\nPublished [Privee {version}](https://github.com/{repo}/releases/tag/{tag}).\n")
+          PY
+
+  # While the fdroiddata MR (from MaxDac/fdroiddata@com.privee.app; see docs/FDROID.md)
+  # is unmerged, checkupdates does not run for Privee, so point the MR at the tag this run
+  # just published. Needs the FDROIDDATA_DEPLOY_KEY secret: the private half of an SSH deploy
+  # key with write access on the fork only. Without it the job only warns. Delete this job once
+  # the MR is merged. FDROIDDATA_FORK / FDROID_MR_BRANCH variables override the defaults.
+  fdroid-mr:
+    if: ${{ inputs.publish }}
+    needs: [build, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      FORK: ${{ vars.FDROIDDATA_FORK || 'MaxDac/fdroiddata' }}
+      BRANCH: ${{ vars.FDROID_MR_BRANCH || 'com.privee.app' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push the published release to the fdroiddata MR branch
+        env:
+          DEPLOY_KEY: ${{ secrets.FDROIDDATA_DEPLOY_KEY }}
+        run: |
+          if [[ -z "$DEPLOY_KEY" ]]; then
+            echo "::warning::FDROIDDATA_DEPLOY_KEY is not set; update the fdroiddata MR to $TAG manually (docs/FDROID.md)."
+            echo "fdroiddata MR not updated: set FDROIDDATA_DEPLOY_KEY or run \`scripts/fdroid_mr_bump.py --tag $TAG\` by hand." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Deploy key: only this fork accepts it. Host key pinned to GitLab's published
+          # ed25519 fingerprint SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8.
+          ssh_dir="$RUNNER_TEMP/fdroiddata-ssh"
+          install -d -m 700 "$ssh_dir"
+          printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
+          chmod 600 "$ssh_dir/key"
+          echo 'gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf' > "$ssh_dir/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $ssh_dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$ssh_dir/known_hosts -o StrictHostKeyChecking=yes"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          git clone --quiet --single-branch --branch "$BRANCH" "git@gitlab.com:$FORK.git" "$RUNNER_TEMP/fdroiddata"
+          recipe="$RUNNER_TEMP/fdroiddata/metadata/com.privee.app.yml"
+          note=$(python3 scripts/fdroid_mr_bump.py --tag "$TAG" --commit-style sha --metadata "$recipe" | grep '^MR note:')
+          cd "$RUNNER_TEMP/fdroiddata"
+          if git diff --quiet; then
+            echo "The MR branch already targets $TAG." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -am "Privee: update to $TAG"
+          git push --quiet origin "HEAD:$BRANCH"
+          {
+            echo "Pushed $TAG to [$FORK@$BRANCH](https://gitlab.com/$FORK/-/tree/$BRANCH); its CI runs lint and build."
+            echo
+            echo "Comment on the fdroiddata MR with: \`${note#MR note: }\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,49 @@
+{
+  "source": {
+    "repository": "https://github.com/signalapp/libsignal.git",
+    "tag": "v0.86.5",
+    "commit": "b39e93f1a5e6531044dfcdf5876585cbcf08f884"
+  },
+  "rust": {
+    "rustupVersion": "1.29.1",
+    "rustupInitSha256": "dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71",
+    "toolchain": "nightly-2025-09-24",
+    "target": "aarch64-linux-android"
+  },
+  "preparation": {
+    "keep": [
+      "Cargo.lock",
+      "Cargo.toml",
+      "LICENSE",
+      "acknowledgments/acknowledgments-android.md",
+      "bin/build_helpers.py",
+      "java/android/src/main",
+      "java/client/src/main",
+      "java/shared/java",
+      "java/shared/resources",
+      "rust",
+      "rust-toolchain"
+    ],
+    "remove": [
+      "rust/attest/fuzz"
+    ]
+  },
+  "build": {
+    "abi": "arm64-v8a",
+    "androidApi": 23,
+    "ndkRevision": "28.2.13676358",
+    "package": "libsignal-jni",
+    "features": [
+      "log/release_max_level_info"
+    ],
+    "rustCfg": [
+      "aes_armv8",
+      "tokio_unstable",
+      "curve25519_dalek_bits=\"64\""
+    ],
+    "output": "build/output/jniLibs/arm64-v8a/libsignal_jni.so",
+    "expectedSha256": {
+      "build/output/jniLibs/arm64-v8a/libsignal_jni.so": "8fee24f5fef8d0d713d14133d618f583b2b118c6e85c68c255b7a92a1ce6d272"
+    }
+  }
+}

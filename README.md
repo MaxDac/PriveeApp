@@ -42,25 +42,19 @@ To switch servers, sign out and tap **Change server** on the welcome screen. The
 
 ## CI and releases
 
-- **CI** (`.github/workflows/ci.yml`) runs tests and lint and builds the debug APK on every push and pull request to `main`.
-- **Release APK** (`.github/workflows/release.yml`) runs on demand from the Actions tab. It builds the release APK and uploads it as an artifact. If you give it a tag, it also publishes a GitHub release with the APK and its SHA-256.
+- **CI** (`.github/workflows/ci.yml`) runs on every push and pull request to `main`. It runs the tests, lint and the release-tooling tests, builds the debug APK, and checks that a declared release in `version.properties` has its changelog.
+- **Release** (`.github/workflows/release.yml`) runs on demand. It builds a reproducible release APK, signs it with the release key and publishes a GitHub release with `release-manifest.json` and `SHA256SUMS`.
+- **Reproducibility** (`.github/workflows/reproducibility.yml`) builds the APK the way F-Droid does, twice and independently, and requires identical results.
 
-The release workflow signs the APK when these repository secrets are set:
-
-| Secret | Value |
-| --- | --- |
-| `KEYSTORE_BASE64` | `base64 -w0 release.jks` |
-| `KEYSTORE_PASSWORD` | keystore password |
-| `KEY_ALIAS` | key alias |
-| `KEY_PASSWORD` | key password |
+See [docs/RELEASING.md](docs/RELEASING.md) for setup and the release procedure.
 
 ## F-Droid
 
-The app is designed to be F-Droid friendly:
+Privee is prepared for the official F-Droid repository; see [docs/FDROID.md](docs/FDROID.md).
 - It has no Google Play Services dependencies. Push notifications use [UnifiedPush](https://unifiedpush.org), so install a distributor such as ntfy to receive them while the app is closed.
-- The dependency-info block is disabled for reproducible builds.
-- Store metadata lives in `fastlane/metadata/android`.
-
+- Release builds compile libsignal's native library from source at a pinned commit instead of using the prebuilt one from Maven ([libsignal/README.md](libsignal/README.md)). Release APKs are therefore ARM64 only.
+- Builds are reproducible, so F-Droid publishes the same signed APK as the GitHub release, and you can switch between the two without reinstalling.
+- Store metadata lives in `fastlane/metadata/android`; the F-Droid recipe is mirrored in `metadata/com.privee.app.yml`.
 ## License
 
 Privee for Android is free software, licensed under the

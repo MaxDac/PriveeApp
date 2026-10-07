@@ -18,6 +18,41 @@ fun signingValue(property: String, env: String): String? =
 
 val releaseStoreFile = signingValue("storeFile", "PRIVEE_KEYSTORE_FILE")
 
+// Set by the F-Droid recipe and the release workflow: use libsignal built from source
+// (libsignal/README.md) instead of the Maven artifacts, which ship prebuilt native code.
+val libsignalBuiltFromSource = providers.gradleProperty("libsignalBuiltFromSource").isPresent
+
+// version.properties holds the version of the next release (scripts/release_version.py);
+// the release workflow passes the tag's version explicitly.
+val baseVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val releaseVersionName = providers.gradleProperty("releaseVersionName").orNull
+val releaseVersionCode = providers.gradleProperty("releaseVersionCode").orNull
+require((releaseVersionName == null) == (releaseVersionCode == null)) {
+    "Set both -PreleaseVersionName and -PreleaseVersionCode, or neither."
+}
+require(!providers.gradleProperty("requireReleaseVersion").isPresent || releaseVersionName != null) {
+    "Publishing requires explicit -PreleaseVersionName and -PreleaseVersionCode."
+}
+val resolvedVersionName = requireNotNull(releaseVersionName ?: baseVersion.getProperty("versionName")) {
+    "version.properties must define versionName."
+}
+require(Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?").matches(resolvedVersionName)) {
+    "versionName must be X.Y.Z or X.Y.Z-prerelease, without leading zeros or build metadata."
+}
+require(resolvedVersionName.substringAfter('-', "").split('.').none {
+    it.matches(Regex("[0-9]+")) && it.length > 1 && it.startsWith("0")
+}) {
+    "Numeric prerelease identifiers cannot have leading zeros."
+}
+val versionCodeText = releaseVersionCode ?: baseVersion.getProperty("versionCode")
+val resolvedVersionCode = versionCodeText?.toIntOrNull()
+require(versionCodeText != null && Regex("[1-9][0-9]*").matches(versionCodeText) &&
+    resolvedVersionCode != null && resolvedVersionCode in 1..2_100_000_000) {
+    "versionCode must be an integer between 1 and 2100000000."
+}
+
 android {
     namespace = "com.privee.app"
     compileSdk = 37
@@ -26,8 +61,8 @@ android {
         applicationId = "com.privee.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
     }
 
     signingConfigs {
@@ -53,6 +88,8 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Published APKs ship arm64-v8a only, the one ABI libsignal is built from source for.
+            ndk { abiFilters += "arm64-v8a" }
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
             buildConfigField("String", "DEV_SERVER_SUGGESTION", "\"\"")
             buildConfigField("String", "LEGACY_SERVER_URL", "\"https://privee.fly.dev\"")
@@ -88,6 +125,8 @@ android {
             "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
         )
         jniLibs.excludes += "**/libsignal_jni_testing.so"
+        // build-libsignal.sh strips the library with the pinned NDK; package those exact bytes.
+        if (libsignalBuiltFromSource) jniLibs.keepDebugSymbols += "**/libsignal_jni.so"
     }
 
     testOptions {
@@ -140,4 +179,14 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+if (libsignalBuiltFromSource) {
+    // :libsignal:android holds both the Java API (also reached through :core:signal) and the
+    // Android natives.
+    configurations.configureEach {
+        exclude(group = "org.signal", module = "libsignal-client")
+        exclude(group = "org.signal", module = "libsignal-android")
+    }
+    dependencies { implementation(project(":libsignal:android")) }
 }
