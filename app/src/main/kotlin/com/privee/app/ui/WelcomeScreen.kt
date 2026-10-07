@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun WelcomeScreen(pendingPeer: String?, onRegister: () -> Unit, onLogIn: () -> Unit) {
+fun WelcomeScreen(
+    serverName: String,
+    pendingPeer: String?,
+    onRegister: () -> Unit,
+    onLogIn: () -> Unit,
+    onChangeServer: () -> Unit,
+) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             Modifier.fillMaxSize().safeDrawingPadding().padding(28.dp),
@@ -65,6 +72,17 @@ fun WelcomeScreen(pendingPeer: String?, onRegister: () -> Unit, onLogIn: () -> U
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = onLogIn, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("go-login")) {
                 Text("I already have a session")
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Server: $serverName",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("server-name"),
+            )
+            TextButton(onClick = onChangeServer, modifier = Modifier.testTag("change-server")) {
+                Text("Change server")
             }
         }
     }

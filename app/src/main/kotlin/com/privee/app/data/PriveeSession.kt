@@ -1,7 +1,5 @@
 package com.privee.app.data
 
-import android.content.Context
-import com.privee.app.BuildConfig
 import com.privee.net.ChannelEvent
 import com.privee.net.PhoenixSocket
 import com.privee.signal.DeviceState
@@ -36,18 +34,18 @@ data class IncomingNotice(val from: String)
  * channel used for key management, and the [SignalClient] of this device.
  */
 class PriveeSession(
-    context: Context,
+    val server: ActiveServer,
     val account: Account,
     client: OkHttpClient,
     private val onUnauthorized: () -> Unit,
 ) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val socket = PhoenixSocket(BuildConfig.SERVER_URL, account.token, client, scope)
+    val socket = PhoenixSocket(server.config.url, account.token, client, scope)
     private val sessionChannel = socket.channel("session")
 
     val signal = SignalClient(
         ownId = account.session.id,
-        storage = EncryptedFileStorage(signalFile(context, account.session.id)),
+        storage = EncryptedFileStorage(signalFile(server, account.session.id)),
         keys = ServerCall { event, payload -> sessionChannel.push(event, payload) },
     )
 
@@ -97,7 +95,8 @@ class PriveeSession(
     }
 
     companion object {
-        fun signalFile(context: Context, sessionId: Long) = File(context.noBackupFilesDir, "signal-$sessionId.bin")
+        /** The Signal state of session [sessionId], stored with the other state of its server. */
+        fun signalFile(server: ActiveServer, sessionId: Long) = File(server.directory, "signal-$sessionId.bin")
     }
 }
 

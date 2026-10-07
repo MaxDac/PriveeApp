@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -19,12 +20,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.privee.app.data.isSessionName
 import com.privee.app.push.PushRegistration
 import com.privee.app.ui.AuthMode
 import com.privee.app.ui.AuthScreen
 import com.privee.app.ui.ChatScreen
 import com.privee.app.ui.HomeScreen
 import com.privee.app.ui.PriveeTheme
+import com.privee.app.ui.ServerScreen
 import com.privee.app.ui.WelcomeScreen
 
 class MainActivity : ComponentActivity() {
@@ -42,21 +45,33 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PriveeTheme {
+                val server by container.server.collectAsStateWithLifecycle()
                 val session by container.session.collectAsStateWithLifecycle()
+                val selected = server
                 val current = session
 
-                if (current == null) {
-                    val nav = rememberNavController()
-                    NavHost(nav, startDestination = "welcome") {
-                        composable("welcome") {
-                            WelcomeScreen(
-                                pendingPeer = pendingPeer,
-                                onRegister = { nav.navigate("register") },
-                                onLogIn = { nav.navigate("login") },
-                            )
+                if (selected == null) {
+                    ServerScreen(container)
+                } else if (current == null) {
+                    key(selected) {
+                        val nav = rememberNavController()
+                        NavHost(nav, startDestination = "welcome") {
+                            composable("welcome") {
+                                WelcomeScreen(
+                                    serverName = selected.config.displayName,
+                                    pendingPeer = pendingPeer,
+                                    onRegister = { nav.navigate("register") },
+                                    onLogIn = { nav.navigate("login") },
+                                    onChangeServer = container::changeServer,
+                                )
+                            }
+                            composable("register") {
+                                AuthScreen(container, selected, AuthMode.Register, onBack = nav::popBackStack)
+                            }
+                            composable("login") {
+                                AuthScreen(container, selected, AuthMode.LogIn, onBack = nav::popBackStack)
+                            }
                         }
-                        composable("register") { AuthScreen(container, AuthMode.Register, onBack = nav::popBackStack) }
-                        composable("login") { AuthScreen(container, AuthMode.LogIn, onBack = nav::popBackStack) }
                     }
                 } else {
                     LaunchedEffect(current) { onSignedIn() }
@@ -97,18 +112,14 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private val sessionName = Regex("^[a-zA-Z0-9-]{1,72}$")
-
-        /** The session name of `https://privee.fly.dev/share/<name>` or `privee://share/<name>`. */
+        /**
+         * The session name of `privee://share/<name>`, opened on the selected server.
+         * Share pages of any server link to it.
+         */
         fun peerFrom(intent: Intent?): String? {
             val uri: Uri = intent?.data ?: return null
-            val segments = uri.pathSegments
-            val name = when (uri.scheme) {
-                "privee" -> if (uri.host == "share") segments.firstOrNull() else null
-                "https" -> if (segments.size >= 2 && segments[0] == "share") segments[1] else null
-                else -> null
-            }
-            return name?.takeIf(sessionName::matches)
+            if (uri.scheme != "privee" || uri.host != "share") return null
+            return uri.pathSegments.singleOrNull()?.takeIf(::isSessionName)
         }
     }
 }

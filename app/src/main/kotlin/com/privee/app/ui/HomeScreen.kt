@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.privee.app.data.AppContainer
 import com.privee.app.data.PriveeSession
+import com.privee.app.data.sessionNameFromInput
 import com.privee.signal.DeviceState
 import com.privee.signal.Direction
 import com.privee.signal.SignalState
@@ -76,8 +77,6 @@ fun recents(state: SignalState): List<Recent> {
     }.sortedByDescending { it.ts }
 }
 
-fun shareLink(sessionName: String) = "https://privee.fly.dev/share/$sessionName"
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (String) -> Unit) {
@@ -89,20 +88,24 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
     var menu by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
     var peer by remember { mutableStateOf("") }
+    var peerError by remember { mutableStateOf(false) }
     val ownName = session.account.session.sessionName
 
     fun share() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, "Talk to me privately on Privee: ${shareLink(ownName)}")
+            putExtra(Intent.EXTRA_TEXT, "Talk to me privately on Privee: ${session.server.shareLink(ownName)}")
         }
         context.startActivity(Intent.createChooser(intent, "Share your session"))
     }
 
     fun open() {
-        val name = peer.trim().substringAfterLast("/share/").trim('/')
-        if (name.isNotEmpty() && name != ownName && name.matches(Regex("^[a-zA-Z0-9-]+$"))) {
+        val name = sessionNameFromInput(peer, session.server.config.url)
+        if (name == null) {
+            peerError = true
+        } else if (name != ownName) {
             peer = ""
+            peerError = false
             onOpenChat(name)
         }
     }
@@ -157,9 +160,10 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                             ConnectionDot(connected)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (connected) "Connected" else "Connecting…",
+                                if (connected) "Connected to ${session.server.config.displayName}" else "Connecting…",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.testTag("server-status"),
                             )
                         }
                         Spacer(Modifier.height(12.dp))
@@ -186,8 +190,17 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = peer,
-                        onValueChange = { peer = it },
+                        onValueChange = {
+                            peer = it
+                            peerError = false
+                        },
                         placeholder = { Text("Session name or share link") },
+                        isError = peerError,
+                        supportingText = if (peerError) {
+                            { Text("Not a session name or a share link of this server.") }
+                        } else {
+                            null
+                        },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                         keyboardActions = KeyboardActions(onGo = { open() }),
