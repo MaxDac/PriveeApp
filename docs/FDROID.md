@@ -1,7 +1,9 @@
 # F-Droid submission and maintenance
 
 This runbook covers submitting Privee to the official F-Droid repository and
-maintaining it after acceptance. Privee follows the same model as
+maintaining it after acceptance. An agent can run it end to end with the
+`fdroid-release` skill (`.claude/skills/` for Claude Code, `.github/skills/` for
+Copilot). Privee follows the same model as
 [FPInk](https://github.com/MaxDac/fpink): F-Droid rebuilds each release from
 source, and because the build is reproducible it publishes our signed GitHub
 APK (`Binaries` plus `AllowedAPKSigningKeys`). Users can therefore move between

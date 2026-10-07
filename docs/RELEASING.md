@@ -74,10 +74,13 @@ environment is the owner's approval to publish.
 
 ## Run a release
 
-To have an agent do all of this, prompt Claude Code or Copilot CLI with "Use
+To have an agent do all of this, prompt Claude Code or GitHub Copilot with "Use
 the fdroid-release skill to cut the next release". The skill is in
-`.claude/skills/fdroid-release/SKILL.md`. It runs the steps below and then
-updates the F-Droid MR and the recipe mirror.
+`.claude/skills/fdroid-release/SKILL.md` (Claude Code) and an identical copy in
+`.github/skills/fdroid-release/SKILL.md` (Copilot); a test keeps them in sync.
+It runs the steps below and then updates the F-Droid MR and the recipe mirror.
+The same skill also drives the one-time setup, the first submission, the
+reviewer loop and the post-merge checks.
 
 First declare the release in a release-bump PR. F-Droid reads the version from
 `version.properties` at the release tag, so the tagged commit must already
