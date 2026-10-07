@@ -71,7 +71,8 @@ install_rust() {
     local version sha init
     version="$(lock_value rust.rustupVersion)"
     sha="$(lock_value rust.rustupInitSha256)"
-    init="$(mktemp)"
+    # rustup-init picks its mode from argv[0], so the file must be named rustup-init.
+    init="$(mktemp -d)/rustup-init"
     curl -fsSL --retry 3 -o "$init" \
       "https://static.rust-lang.org/rustup/archive/$version/x86_64-unknown-linux-gnu/rustup-init"
     echo "$sha  $init" | sha256sum -c --quiet - || {
@@ -80,7 +81,7 @@ install_rust() {
     }
     chmod +x "$init"
     "$init" -y --no-modify-path --profile minimal --default-toolchain none
-    rm -f "$init"
+    rm -rf "$(dirname "$init")"
   fi
   rustup toolchain install "$toolchain" --profile minimal --target "$rust_target"
 }
