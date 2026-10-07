@@ -27,7 +27,7 @@ class PriveePushService : PushService() {
     override fun onMessage(message: PushMessage, instance: String) {
         if (container.session.value == null) return
         // While open, the session channel already notifies about new messages.
-        if (!container.foreground.value) Notifications.newMessage(this, from = null)
+        if (!container.foreground.value) Notifications.newMessage(this, from = null, serverUrl = null)
     }
 
     override fun onRegistrationFailed(reason: FailedReason, instance: String) = Unit

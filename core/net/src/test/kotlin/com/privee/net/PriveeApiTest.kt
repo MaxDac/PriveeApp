@@ -6,6 +6,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -75,6 +76,24 @@ class PriveeApiTest {
         assertThrows<UnauthorizedException> { runBlocking { api.session("bad") } }
         server.takeRequest()
         assertEquals("Bearer bad", server.takeRequest().headers["Authorization"])
+    }
+    @Test
+    fun `does not follow redirects that would re-send the recovery phrase`() {
+        val elsewhere = MockWebServer().apply { start() }
+        try {
+            elsewhere.enqueue(MockResponse.Builder().code(200).body("""{"token":"stolen"}""").build())
+            server.enqueue(
+                MockResponse.Builder().code(307).addHeader("Location", elsewhere.url("/steal").toString()).build(),
+            )
+            val redirected = assertThrows<ApiException> {
+                runBlocking { api.logIn("blue-fox", "correct horse battery staple", quick = false) }
+            }
+            assertEquals(307, redirected.status)
+            assertEquals(1, server.requestCount)
+            assertEquals(0, elsewhere.requestCount)
+        } finally {
+            elsewhere.close()
+        }
     }
 }
 
@@ -147,5 +166,30 @@ class PhoenixSocketTest {
         assertEquals("2.0.0", request.url.queryParameter("vsn"))
         assertTrue(request.headers["Sec-WebSocket-Protocol"]!!.contains("base64url.bearer.phx.c2VjcmV0"))
         socket.disconnect()
+    }
+
+    @Test
+    fun `does not follow a redirect of the upgrade, which would leak the token`() = runBlocking {
+        val elsewhere = MockWebServer().apply { start() }
+        try {
+            elsewhere.enqueue(MockResponse.Builder().webSocketUpgrade(phoenixServer()).build())
+            server.enqueue(
+                MockResponse.Builder().code(302).addHeader("Location", elsewhere.url("/app/socket/websocket").toString()).build(),
+            )
+            server.start()
+
+            val socket = PhoenixSocket(
+                server.url("/").toString(), "secret", OkHttpClient(), scope, reconnectDelaysMs = listOf(60_000),
+            )
+            socket.connect()
+            withTimeout(10_000) { server.takeRequest() }
+            delay(500)
+
+            assertEquals(false, socket.connected.value)
+            assertEquals(0, elsewhere.requestCount)
+            socket.disconnect()
+        } finally {
+            elsewhere.close()
+        }
     }
 }

@@ -112,9 +112,11 @@ suspend fun fetchServerInfo(baseUrl: String, client: OkHttpClient): ServerInfo {
     val base = baseUrl.toHttpUrlOrNull() ?: throw ServerCheckException(ServerProblem.InvalidUrl)
     val url = base.newBuilder().addPathSegments("api/app/info").build()
     val request = Request.Builder().url(url).header("Accept", "application/json").get().build()
+    // A redirect could hand the check to another host: the address must answer itself.
+    val noRedirects = client.withoutRedirects()
     val body = try {
         withContext(Dispatchers.IO) {
-            client.newCall(request).execute().use { response ->
+            noRedirects.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw ServerCheckException(ServerProblem.NotPrivee)
                 response.body.string()
             }

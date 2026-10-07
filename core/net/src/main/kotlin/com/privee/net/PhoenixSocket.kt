@@ -58,11 +58,13 @@ enum class ChannelState { Closed, Joining, Joined, Errored }
 class PhoenixSocket(
     baseUrl: String,
     private val token: String,
-    private val client: OkHttpClient,
+    client: OkHttpClient,
     private val scope: CoroutineScope,
     private val heartbeatMs: Long = 30_000,
     private val reconnectDelaysMs: List<Long> = listOf(1_000, 2_000, 5_000, 10_000),
 ) {
+    private val client = client.withoutRedirects()
+
     private val url = baseUrl.toHttpUrl().newBuilder()
         .addPathSegments("app/socket/websocket")
         .addQueryParameter("vsn", "2.0.0")

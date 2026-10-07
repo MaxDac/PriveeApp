@@ -31,7 +31,7 @@ Privee has no default server: anyone can deploy their own (fork) of [Privee](htt
 - Release builds accept only `https://` servers.
 - Debug builds also accept `http://`, and suggest `http://10.0.2.2:4000`, a local `mix phx.server` as seen from the Android emulator.
 
-To switch servers, sign out and tap **Change server** on the welcome screen. The account and Signal state (keys, sessions and history) are stored per server, so one server never reuses another server's identity. Share links point to the selected server. The `privee://share/<session name>` deep link opens a conversation on the selected server.
+To switch servers, sign out and tap **Change server** on the welcome screen. The account and Signal state (keys, sessions and history) are stored per server, so one server never reuses another server's identity. Share links point to the selected server. The app link `privee://share/<session name>?server=<URL-encoded server>` opens a conversation directly only when its server is the selected one; otherwise (or for legacy links without `server`) the app names both servers and asks before opening. The welcome and home screens identify the server by its address; the `name` it reports about itself is only a secondary hint.
 
 ### Release signing
 

@@ -25,8 +25,11 @@ import java.util.concurrent.TimeUnit
 class ActiveServer(val config: ServerConfig, val api: PriveeApi, val directory: File) {
     internal val accounts = AccountStore(EncryptedFileStorage(File(directory, ACCOUNT_FILE)))
 
-    /** The link that opens a conversation with [sessionName] on this server. */
+    /** The link that opens a conversation with [sessionName] on this server, in a browser. */
     fun shareLink(sessionName: String) = shareLink(config.url, sessionName)
+
+    /** The link that opens a conversation with [sessionName] on this server, in the app. */
+    fun appLink(sessionName: String) = appLink(config.url, sessionName)
 
     companion object {
         const val ACCOUNT_FILE = "account.bin"
@@ -40,6 +43,9 @@ class AppContainer(private val context: Context) {
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Never re-send the token or the recovery phrase elsewhere: a 3xx is an error.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     private val servers = ServerStore(EncryptedFileStorage(File(context.noBackupFilesDir, "server.bin")))
@@ -56,6 +62,9 @@ class AppContainer(private val context: Context) {
 
     /** The session name of the conversation on screen, to skip its notifications. */
     val activeChat = MutableStateFlow<String?>(null)
+
+    /** A conversation requested by an app link or a notification, opened once signed in. */
+    val pendingInvite = MutableStateFlow<Invite?>(null)
 
     /** Whether the app is in the foreground. */
     val foreground = MutableStateFlow(false)
@@ -97,6 +106,7 @@ class AppContainer(private val context: Context) {
         check(_session.value == null) { "Sign out before changing server" }
         servers.clear()
         activeChat.value = null
+        pendingInvite.value = null
         _server.value = null
     }
 
