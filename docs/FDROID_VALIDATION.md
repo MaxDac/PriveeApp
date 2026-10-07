@@ -14,7 +14,7 @@ The recipe needs:
 
 - the Android SDK (platform 37, build-tools 36.0.0) and NDK r28c
   (`28.2.13676358`), both installed by fdroidserver;
-- the Debian packages `cmake curl git make ninja-build protobuf-compiler
+- the Debian packages `build-essential cmake curl git make ninja-build protobuf-compiler
   python3` (the recipe's `sudo` step);
 - network access in `prebuild` only, for rustup, the pinned nightly toolchain,
   the libsignal clone and `cargo fetch`. `build` runs Cargo with `--offline`.

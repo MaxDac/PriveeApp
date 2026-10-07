@@ -41,7 +41,7 @@ logging compiled out.
 
 ## Build locally (Linux or WSL)
 
-Install `cmake curl git make ninja-build protobuf-compiler python3`, plus NDK
+Install `build-essential cmake curl git make ninja-build protobuf-compiler python3`, plus NDK
 `28.2.13676358` (r28c). Then:
 
 ```text

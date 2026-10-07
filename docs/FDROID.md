@@ -27,7 +27,7 @@ Compose). `scripts/verify_release_apk.py` rejects any other native code.
 
 ```yaml
     subdir: app
-    sudo:   apt-get install -y cmake curl git make ninja-build protobuf-compiler python3
+    sudo:   apt-get install -y build-essential cmake curl git make ninja-build protobuf-compiler python3
     gradle: [yes]
     prebuild: bash -x ../libsignal/scripts/build-libsignal.sh fetch
     build:  NDK_ROOT=$$NDK$$ bash -x ../libsignal/scripts/build-libsignal.sh build

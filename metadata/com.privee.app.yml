@@ -20,7 +20,7 @@ Builds:
     subdir: app
     sudo:
       - apt-get update
-      - apt-get install -y cmake curl git make ninja-build protobuf-compiler python3
+      - apt-get install -y build-essential cmake curl git make ninja-build protobuf-compiler python3
     gradle:
       - yes
     prebuild: bash -x ../libsignal/scripts/build-libsignal.sh fetch
