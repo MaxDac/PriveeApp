@@ -186,6 +186,7 @@ class SignalClient(
             state = state.copy(
                 signedPreKeys = emptyMap(),
                 kyberPreKeys = emptyMap(),
+                usedKyberPreKeys = emptySet(),
                 signedPreKeyMeta = emptyMap(),
                 spkCurrent = null,
                 preKeys = emptyMap(),
@@ -239,6 +240,9 @@ class SignalClient(
                 signedPreKeys = state.signedPreKeys - expired,
                 kyberPreKeys = state.kyberPreKeys - expired,
                 signedPreKeyMeta = state.signedPreKeyMeta - expired,
+                usedKyberPreKeys = state.usedKyberPreKeys.filterTo(mutableSetOf()) {
+                    it.substringBefore(':').toIntOrNull() !in expired
+                },
             )
             commit()
         }

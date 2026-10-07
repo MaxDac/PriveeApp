@@ -44,12 +44,18 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            // The host machine, as seen from the Android emulator.
-            buildConfigField("String", "SERVER_URL", "\"http://10.0.2.2:4000\"")
+            // Debug builds may talk to a development server over plain HTTP.
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
+            // Suggested (never preselected) on the server screen: the host machine, as seen from the emulator.
+            buildConfigField("String", "DEV_SERVER_SUGGESTION", "\"http://10.0.2.2:4000\"")
+            // Server of the pre-existing account and keys, before servers were configurable; only used to migrate them.
+            buildConfigField("String", "LEGACY_SERVER_URL", "\"http://10.0.2.2:4000\"")
         }
         release {
             isMinifyEnabled = false
-            buildConfigField("String", "SERVER_URL", "\"https://privee.fly.dev\"")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            buildConfigField("String", "DEV_SERVER_SUGGESTION", "\"\"")
+            buildConfigField("String", "LEGACY_SERVER_URL", "\"https://privee.fly.dev\"")
             signingConfig = signingConfigs.findByName("release")
         }
     }

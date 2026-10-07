@@ -4,6 +4,7 @@ import org.signal.libsignal.protocol.IdentityKey
 import org.signal.libsignal.protocol.IdentityKeyPair
 import org.signal.libsignal.protocol.InvalidKeyIdException
 import org.signal.libsignal.protocol.NoSessionException
+import org.signal.libsignal.protocol.ReusedBaseKeyException
 import org.signal.libsignal.protocol.SignalProtocolAddress
 import org.signal.libsignal.protocol.ecc.ECPublicKey
 import org.signal.libsignal.protocol.groups.state.SenderKeyRecord
@@ -19,6 +20,9 @@ import java.util.UUID
 internal fun ByteArray.b64(): String = Base64.getEncoder().encodeToString(this)
 
 internal fun String.unb64(): ByteArray = Base64.getDecoder().decode(this)
+
+internal fun kyberPreKeyUse(kyberPreKeyId: Int, signedPreKeyId: Int, baseKey: ECPublicKey): String =
+    "$kyberPreKeyId:$signedPreKeyId:${baseKey.serialize().b64()}"
 
 /** Holds the working copy of the state during an operation. */
 internal class StateHolder(var state: SignalState)
@@ -106,8 +110,13 @@ internal class PriveeProtocolStore(private val holder: StateHolder) : SignalProt
 
     override fun containsKyberPreKey(kyberPreKeyId: Int): Boolean = kyberPreKeyId in state.kyberPreKeys
 
-    // Only last-resort Kyber prekeys are published: they stay until retired.
-    override fun markKyberPreKeyUsed(kyberPreKeyId: Int, signedPreKeyId: Int, baseKey: ECPublicKey) = Unit
+    // Only last-resort Kyber prekeys are published: they stay until retired, so
+    // each (Kyber prekey, signed prekey, base key) use is recorded to reject replayed PreKey messages.
+    override fun markKyberPreKeyUsed(kyberPreKeyId: Int, signedPreKeyId: Int, baseKey: ECPublicKey) {
+        val use = kyberPreKeyUse(kyberPreKeyId, signedPreKeyId, baseKey)
+        if (use in state.usedKyberPreKeys) throw ReusedBaseKeyException()
+        state = state.copy(usedKyberPreKeys = state.usedKyberPreKeys + use)
+    }
 
     override fun loadSession(address: SignalProtocolAddress): SessionRecord? =
         state.sessions[address.name]?.let { SessionRecord(it.unb64()) }

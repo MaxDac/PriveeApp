@@ -73,6 +73,8 @@ data class SignalState(
     val preKeys: Map<Int, String> = emptyMap(),
     val signedPreKeys: Map<Int, String> = emptyMap(),
     val kyberPreKeys: Map<Int, String> = emptyMap(),
+    /** `kyberId:signedPreKeyId:baseKey` of every PreKey message accepted with a last-resort Kyber prekey. */
+    val usedKyberPreKeys: Set<String> = emptySet(),
     val signedPreKeyMeta: Map<Int, SignedPreKeyMeta> = emptyMap(),
     val spkCounter: Int = 0,
     val spkCurrent: Int? = null,

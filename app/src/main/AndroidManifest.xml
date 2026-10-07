@@ -26,17 +26,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Share links of the website: https://privee.fly.dev/share/<session name>.
-                 Not verified: the user picks the app or the browser. -->
-            <intent-filter android:autoVerify="false">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:host="privee.fly.dev"
-                    android:pathPrefix="/share/"
-                    android:scheme="https" />
-            </intent-filter>
+            <!-- Opens a conversation with privee://share/<session name> on the selected server.
+                 Servers are chosen by the user, so https share links can't be claimed here. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

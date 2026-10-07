@@ -42,13 +42,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.privee.app.data.ActiveServer
 import com.privee.app.data.AppContainer
 import com.privee.net.ApiException
 import kotlinx.coroutines.launch
 
 enum class AuthMode { Register, LogIn }
 
-class AuthViewModel(private val container: AppContainer, val mode: AuthMode) : ViewModel() {
+class AuthViewModel(
+    private val container: AppContainer,
+    private val server: ActiveServer,
+    val mode: AuthMode,
+) : ViewModel() {
     var sessionName by mutableStateOf("")
     var phrase by mutableStateOf("")
     var quick by mutableStateOf(false)
@@ -70,10 +75,10 @@ class AuthViewModel(private val container: AppContainer, val mode: AuthMode) : V
         viewModelScope.launch {
             try {
                 val result = when (mode) {
-                    AuthMode.Register -> container.api.register(sessionName, phrase.takeUnless { quick }, quick)
-                    AuthMode.LogIn -> container.api.logIn(sessionName, phrase.takeUnless { quick }, quick)
+                    AuthMode.Register -> server.api.register(sessionName, phrase.takeUnless { quick }, quick)
+                    AuthMode.LogIn -> server.api.logIn(sessionName, phrase.takeUnless { quick }, quick)
                 }
-                container.signedIn(result)
+                container.signedIn(server, result)
             } catch (e: ApiException) {
                 fieldErrors = e.errors
                 error = when {
@@ -92,8 +97,8 @@ class AuthViewModel(private val container: AppContainer, val mode: AuthMode) : V
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen(container: AppContainer, mode: AuthMode, onBack: () -> Unit) {
-    val vm: AuthViewModel = viewModel(key = mode.name) { AuthViewModel(container, mode) }
+fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onBack: () -> Unit) {
+    val vm: AuthViewModel = viewModel(key = "${server.config.url}:${mode.name}") { AuthViewModel(container, server, mode) }
     val register = mode == AuthMode.Register
 
     Scaffold(

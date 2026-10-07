@@ -6,6 +6,7 @@ Privee is an anonymous, end-to-end encrypted chat.
 <li>Safety numbers let you verify who you are talking to, and you are warned when a contact's identity changes.</li>
 <li>Chats with people using the Privee website work seamlessly.</li>
 <li>Push notifications through UnifiedPush, with no Google services required.</li>
+<li>No central server: connect to any Privee server, including one you host yourself.</li>
 </ul>
 
-Privee is free software, licensed under the AGPL-3.0.
+Privee is free software, licensed under the AGPL-3.0-only. Forks and modified versions must stay free software under the same licence.

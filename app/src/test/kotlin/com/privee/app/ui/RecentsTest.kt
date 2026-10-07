@@ -37,9 +37,4 @@ class RecentsTest {
             recents(state),
         )
     }
-
-    @Test
-    fun `builds the share link of a session`() {
-        assertEquals("https://privee.fly.dev/share/abc", shareLink("abc"))
-    }
 }

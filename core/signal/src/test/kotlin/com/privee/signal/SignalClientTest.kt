@@ -271,6 +271,29 @@ class SignalClientTest {
     }
 
     @Test
+    fun `a PreKey message replayed under a new epoch is rejected`() = runTest {
+        val a = client(alice)
+        val b = client(bob)
+        a.ensureKeys()
+        b.ensureKeys()
+        // Without one-time prekeys, only the last-resort Kyber prekey guards against replays.
+        server.bundles.getValue(bob).opks.clear()
+        a.send(server.chat(alice, bob), bob, "hi")
+        b.catchUp(server.chat(bob, alice), alice, server.epoch)
+        assertEquals(listOf("hi"), b.history(alice).map { it.plaintext })
+
+        val original = server.messages.single()
+        server.messages += original.copy(id = "replay", seq = 1, epoch = "epoch-2")
+        b.catchUp(server.chat(bob, alice), alice, "epoch-2")
+        assertEquals(listOf("hi", null), b.history(alice).map { it.plaintext })
+
+        // The original session survives the rejected replay.
+        a.send(server.chat(alice, bob), bob, "again")
+        b.catchUp(server.chat(bob, alice), alice, server.epoch)
+        assertEquals(listOf("hi", null, "again"), b.history(alice).map { it.plaintext })
+    }
+
+    @Test
     fun `replenishes one-time prekeys below the watermark`() = runTest {
         val a = client(alice)
         a.ensureKeys()
