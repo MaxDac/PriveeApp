@@ -1,0 +1,1 @@
+First release: anonymous sessions, end-to-end encrypted chats, safety numbers, share links and UnifiedPush notifications.

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A speech bubble holding a padlock, on the 108dp adaptive icon grid. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/brand"
+        android:pathData="M34,32h40a8,8 0,0 1,8 8v24a8,8 0,0 1,-8 8H50l-12,10v-10h-4a8,8 0,0 1,-8 -8V40a8,8 0,0 1,8 -8z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,40a8,8 0,0 0,-8 8v4h-1a2,2 0,0 0,-2 2v10a2,2 0,0 0,2 2h18a2,2 0,0 0,2 -2V54a2,2 0,0 0,-2 -2h-1v-4a8,8 0,0 0,-8 -8zM54,44a4,4 0,0 1,4 4v4h-8v-4a4,4 0,0 1,4 -4z" />
+</vector>

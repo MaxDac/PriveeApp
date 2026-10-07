@@ -1,0 +1,33 @@
+# Android / Gradle
+build/
+.gradle/
+local.properties
+captures/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+release/
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+*.hprof
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets: never commit these
+*.jks
+*.keystore
+*.pfx
+*.pem
+*.env
+secrets.properties
+keystore.properties
