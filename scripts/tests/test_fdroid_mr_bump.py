@@ -98,8 +98,8 @@ class BumpTextTests(unittest.TestCase):
 def stale_fork(text=MIRROR):
     # A fork recipe that kept build steps the mirror has since dropped.
     return text.replace(
-        "      - yes\n",
-        "      - yes\n    rm:\n      - libsignal/prebuilt/libsignal_jni.so\n"
+        "      - 'yes'\n",
+        "      - 'yes'\n    rm:\n      - libsignal/prebuilt/libsignal_jni.so\n"
         "    build: bash ../build.sh\n      build\n    ndk: 28.2.13676358\n",
         1,
     )

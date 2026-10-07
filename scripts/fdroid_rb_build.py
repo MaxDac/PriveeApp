@@ -84,7 +84,7 @@ def load_recipe(path: Path):
     return {
         "subdir": str(build.get("subdir") or ""),
         "sudo": as_list(build.get("sudo")),
-        "gradle": as_list(build.get("gradle")),
+        "gradle": ["yes" if item == "True" else item for item in as_list(build.get("gradle"))],
         "rm": as_list(build.get("rm")),
         "prebuild": as_list(build.get("prebuild")),
         "build": as_list(build.get("build")),
