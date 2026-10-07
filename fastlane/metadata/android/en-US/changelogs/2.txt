@@ -1,0 +1,1 @@
+First F-Droid release. New app icon. The Signal library is now built from source, so builds are reproducible and verified. This release ships for 64-bit ARM (arm64-v8a) devices.
