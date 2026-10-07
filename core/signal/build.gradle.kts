@@ -8,8 +8,9 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// No toolchain: the F-Droid buildserver ships only JDK 21, so target 17 bytecode instead.
 kotlin {
-    jvmToolchain(17)
+    compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 }
 }
 
 dependencies {
