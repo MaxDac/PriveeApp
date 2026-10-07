@@ -292,7 +292,9 @@ def main(argv=None) -> int:
         as_vagrant(["gradle", *("-P" + prop for prop in recipe["gradleprops"]), f"assemble{flavors}Release"],
                    root_dir, env)
 
-        apks = sorted((root_dir / "build/outputs/apk").glob(f"*/release/*-release-unsigned.apk"))
+        apk_root = root_dir / "build/outputs/apk"
+        apks = sorted([*apk_root.glob("release/*-release-unsigned.apk"),
+                       *apk_root.glob("*/release/*-release-unsigned.apk")])
         apks = [apk for apk in apks if apk.parent.parent.name.lower() == flavors.lower()] or apks
         if len(apks) != 1:
             raise RbBuildError(f"Expected exactly one unsigned release APK, found {apks}")
