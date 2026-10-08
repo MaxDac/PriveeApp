@@ -3,7 +3,6 @@
     <string name="app_name" translatable="false">Privee</string>
     <string name="notification_channel_messages">Messages</string>
     <string name="notification_new_message">New message</string>
-    <string name="notification_new_message_from">New message from %1$s</string>
     <string name="notification_open_to_read">Open Privee to read it.</string>
     <string name="language">Language</string>
     <string name="back">Back</string>

@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import com.privee.app.R
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -205,7 +206,12 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
                     },
                     isError = vm.fieldErrors["recovery_phrase"] != null,
                     visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    // Also marks the field as sensitive to keyboards: no suggestions or learning.
+                    keyboardOptions = KeyboardOptions(
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
                     modifier = Modifier.fillMaxWidth().testTag("recovery-phrase"),
                 )
             }

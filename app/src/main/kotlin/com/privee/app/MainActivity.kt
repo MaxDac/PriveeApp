@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +32,9 @@ import com.privee.app.data.parseAppLink
 import com.privee.app.push.PushRegistration
 import com.privee.app.push.Notifications
 import com.privee.app.ui.LanguageDialog
+import com.privee.app.ui.NoPersonalizedLearning
+import com.privee.app.ui.PriveeAlertDialog
+import com.privee.app.ui.protectWindow
 import com.privee.app.push.BackgroundMessageService
 import com.privee.app.ui.AuthMode
 import com.privee.app.ui.AuthScreen
@@ -61,12 +63,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        protectWindow(window)
         Notifications.createChannel(this)
         if (savedInstanceState == null) inviteFrom(intent)?.let { container.pendingInvite.value = it }
         val container = container
 
         setContent {
-            PriveeTheme {
+            PriveeTheme { NoPersonalizedLearning {
                 var languageDialog by rememberSaveable { mutableStateOf(false) }
                 val onLanguage = { languageDialog = true }
                 if (languageDialog) {
@@ -92,7 +95,7 @@ class MainActivity : AppCompatActivity() {
                 val selected = server
                 val current = session
                 if (notificationDenied) {
-                    AlertDialog(
+                    PriveeAlertDialog(
                         onDismissRequest = { notificationDenied = false },
                         title = { Text(getString(R.string.background_alerts)) },
                         text = { Text(getString(R.string.listener_notifications_blocked)) },
@@ -148,7 +151,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     unconfirmedName?.let { name ->
                         val requested = Invite(name, unconfirmedServer)
-                        AlertDialog(
+                        PriveeAlertDialog(
                             onDismissRequest = { unconfirmedName = null },
                             title = { Text(stringResource(R.string.different_server)) },
                             text = {
@@ -183,7 +186,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-            }
+            } }
         }
     }
 

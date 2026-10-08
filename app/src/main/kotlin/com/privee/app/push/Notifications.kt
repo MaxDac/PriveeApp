@@ -19,10 +19,11 @@ import com.privee.app.R
 import com.privee.app.localizedContext
 import com.privee.app.data.appLink
 
-/** Message notifications: they never contain message text, only the sender. */
+/** Message notifications: generic text only, never the message, the sender or a per-sender tag. */
 object Notifications {
     private const val CHANNEL = "messages"
     private const val LISTENER_CHANNEL = "background-listening"
+    const val MESSAGE_ID = 1
     const val LISTENER_ID = 2
 
     fun shouldNotifySocket(foreground: Boolean, activeChat: String?, from: String): Boolean =
@@ -103,10 +104,14 @@ object Notifications {
         NotificationManagerCompat.from(context).cancel(LISTENER_ID)
     }
 
-    fun newMessage(context: Context, from: String?, serverUrl: String?) {
+    /**
+     * A message notification. Other apps can read posted notifications (notification listeners)
+     * and they show on the lock screen, so it is always the same generic text: no sender, no
+     * message text, and a fixed id with no tag, which also hides how many people wrote. Tapping it
+     * opens the chat of the latest sender; the PendingIntent is not readable by other apps.
+     */
+    fun messageNotification(context: Context, from: String?, serverUrl: String?): Notification {
         val strings = context.localizedContext()
-        createChannel(context)
-        if (!messagesAllowed(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // Tagged with the server, so the chat doesn't open on another one selected meanwhile.
@@ -114,26 +119,35 @@ object Notifications {
         }
         val pending = PendingIntent.getActivity(
             context,
-            from?.hashCode() ?: 0,
+            MESSAGE_ID,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = if (from != null) {
-            strings.getString(R.string.notification_new_message_from, from)
-        } else {
-            strings.getString(R.string.notification_new_message)
-        }
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val title = strings.getString(R.string.notification_new_message)
+        val text = strings.getString(R.string.notification_open_to_read)
+        val public = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(strings.getString(R.string.notification_open_to_read))
+            .setContentText(text)
+            .build()
+        return NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(text)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(public)
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
+    }
+
+    fun newMessage(context: Context, from: String?, serverUrl: String?) {
+        createChannel(context)
+        if (!messagesAllowed(context)) return
         try {
-            NotificationManagerCompat.from(context).notify(from ?: "", 1, notification)
+            NotificationManagerCompat.from(context).notify(MESSAGE_ID, messageNotification(context, from, serverUrl))
         } catch (e: SecurityException) {
             Log.w("Notifications", "Message notification permission was revoked", e)
         }

@@ -142,6 +142,8 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric tests (notifications, window protections, store screenshots) need merged resources.
+        unitTests.isIncludeAndroidResources = true
     }
 
     lint {
@@ -194,10 +196,31 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
 }
+
+// Store screenshots (skill store-screenshots): `-PrecordStoreScreenshots` makes the Roborazzi
+// tests in src/testDebug write fastlane's phoneScreenshots; otherwise they only render.
+val storeScreenshots = rootProject.layout.projectDirectory
+    .dir("fastlane/metadata/android/en-US/images/phoneScreenshots").asFile.absolutePath
+val recordStoreScreenshots = providers.gradleProperty("recordStoreScreenshots").isPresent
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Robolectric's Android 16 runtime reaches into JDK internals.
+    jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
+    systemProperty("privee.storeScreenshots", storeScreenshots)
+    if (recordStoreScreenshots) {
+        systemProperty("roborazzi.test.record", "true")
+        outputs.upToDateWhen { false }
+    }
 }
 
 if (libsignalBuiltFromSource) {

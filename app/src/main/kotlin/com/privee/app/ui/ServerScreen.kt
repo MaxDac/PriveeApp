@@ -86,7 +86,30 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
 @Composable
 fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
     val vm: ServerViewModel = viewModel { ServerViewModel(container) }
+    ServerContent(
+        address = vm.address,
+        onAddressChange = { vm.address = it },
+        busy = vm.busy,
+        error = vm.error,
+        canConnect = vm.canConnect,
+        suggestion = BuildConfig.DEV_SERVER_SUGGESTION,
+        onConnect = vm::connect,
+        onLanguage = onLanguage,
+    )
+}
 
+/** [ServerScreen] without its view model, so it renders from plain state (store screenshots). */
+@Composable
+fun ServerContent(
+    address: String,
+    onAddressChange: (String) -> Unit,
+    busy: Boolean,
+    error: ServerCheckException?,
+    canConnect: Boolean,
+    suggestion: String,
+    onConnect: () -> Unit,
+    onLanguage: () -> Unit,
+) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             Modifier
@@ -106,11 +129,11 @@ fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
-                value = vm.address,
-                onValueChange = { vm.address = it },
+                value = address,
+                onValueChange = onAddressChange,
                 label = { Text(stringResource(R.string.server_address)) },
                 placeholder = { Text(stringResource(R.string.server_address_example)) },
-                isError = vm.error != null,
+                isError = error != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.None,
@@ -118,17 +141,17 @@ fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Go,
                 ),
-                keyboardActions = KeyboardActions(onGo = { vm.connect() }),
+                keyboardActions = KeyboardActions(onGo = { onConnect() }),
                 modifier = Modifier.fillMaxWidth().testTag("server-address"),
             )
-            if (BuildConfig.DEV_SERVER_SUGGESTION.isNotEmpty()) {
+            if (suggestion.isNotEmpty()) {
                 AssistChip(
-                    onClick = { vm.address = BuildConfig.DEV_SERVER_SUGGESTION },
-                    label = { Text(stringResource(R.string.use_server, BuildConfig.DEV_SERVER_SUGGESTION)) },
+                    onClick = { onAddressChange(suggestion) },
+                    label = { Text(stringResource(R.string.use_server, suggestion)) },
                     modifier = Modifier.testTag("server-suggestion"),
                 )
             }
-            vm.error?.let {
+            error?.let {
                 Text(
                     if (it.problem == ServerProblem.UnsupportedVersion) {
                         stringResource(R.string.server_unsupported_version, it.apiVersion?.toString() ?: stringResource(R.string.unknown))
@@ -141,11 +164,11 @@ fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
                 )
             }
             Button(
-                onClick = vm::connect,
-                enabled = vm.canConnect,
+                onClick = onConnect,
+                enabled = canConnect,
                 modifier = Modifier.fillMaxWidth().height(52.dp).testTag("server-connect"),
             ) {
-                if (vm.busy) {
+                if (busy) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 } else {
                     Text(stringResource(R.string.connect))
