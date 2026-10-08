@@ -12,6 +12,8 @@ The app uses Kotlin and Jetpack Compose. It talks to the same Phoenix server as 
 | `core/net` | Privee REST API client and a minimal Phoenix channels client (OkHttp) |
 | `core/signal` | Signal protocol wrapper: key bundles, session setup, encrypt/decrypt, safety numbers |
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data flow and where to make changes, and [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md) for the full technology stack, including how notifications work.
+
 ## Building
 
 Requirements:
@@ -55,6 +57,18 @@ Privee is prepared for the official F-Droid repository; see [docs/FDROID.md](doc
 - Release builds compile libsignal's native library from source at a pinned commit instead of using the prebuilt one from Maven ([libsignal/README.md](libsignal/README.md)). Release APKs are therefore ARM64 only.
 - Builds are reproducible, so F-Droid publishes the same signed APK as the GitHub release, and you can switch between the two without reinstalling.
 - Store metadata lives in `fastlane/metadata/android`; the F-Droid recipe is mirrored in `metadata/com.privee.app.yml`.
+
+## Working on this repository (humans and AI agents)
+
+- [CLAUDE.md](CLAUDE.md) (Claude Code) and [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot) summarise the commands, conventions and guardrails.
+- Step-by-step procedures are skills, kept as identical copies in `.claude/skills/` and `.github/skills/`:
+  - `fdroid-release`
+  - `libsignal-upgrade`
+  - `dependency-upgrade`
+  - `store-screenshots`
+  - `cross-repo-change`
+- Changes that also touch the server follow [Privee's cross-repo guide](https://github.com/MaxDac/Privee/blob/main/docs/cross-repo.md).
+
 ## License
 
 Privee for Android is free software, licensed under the
