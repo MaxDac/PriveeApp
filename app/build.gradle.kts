@@ -61,7 +61,11 @@ android {
         applicationId = "com.privee.app"
         minSdk = 26
         targetSdk = 36
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = if (providers.gradleProperty("backgroundListenerSmoke").isPresent) {
+            "com.privee.app.push.BackgroundListenerInstrumentation"
+        } else {
+            "androidx.test.runner.AndroidJUnitRunner"
+        }
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
     }

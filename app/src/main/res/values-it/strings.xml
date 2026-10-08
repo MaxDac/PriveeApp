@@ -89,4 +89,26 @@
     <string name="open_on_server">Apri su %1$s</string>
     <string name="invite_other_server">Questo link a %1$s è per il server %2$s, ma stai usando %3$s. La sessione %1$s su %3$s potrebbe appartenere a un\'altra persona.</string>
     <string name="invite_unspecified_server">Questo link a %1$s non indica il server di origine, ma stai usando %2$s. La sessione %1$s su %2$s potrebbe appartenere a un\'altra persona.</string>
+    <string name="notification_channel_listener">Connessione in background</string>
+    <string name="background_alerts">Avvisi dei messaggi in background</string>
+    <string name="listener_connected">In ascolto di nuovi messaggi</string>
+    <string name="listener_connecting">Connessione o riconnessione al server della chat</string>
+    <string name="listener_stop">Interrompi ascolto</string>
+    <string name="listener_off">L\'ascolto in background è disattivato</string>
+    <string name="listener_paused">L\'ascolto è attivo, ma il servizio non è in esecuzione. Apri le impostazioni per riprovare.</string>
+    <string name="listener_failed">Impossibile avviare l\'ascolto in background. Controlla le impostazioni delle notifiche e riprova.</string>
+    <string name="listener_description">Mantieni una connessione diretta al server Privee quando l\'app è chiusa. Consuma più batteria e mostra una notifica di stato permanente. Non sono necessari servizi Google né un distributore push.</string>
+    <string name="listener_battery_guide">Se i messaggi arrivano in ritardo a schermo spento, consenti a Privee l\'uso della batteria senza restrizioni nelle impostazioni Android. Android potrebbe avvertire che questo consuma più batteria: è un compromesso facoltativo per ricevere avvisi in background. Accettalo solo se desideri questa funzione. I nomi delle impostazioni variano in base al dispositivo.</string>
+    <string name="listener_limits">Android può comunque arrestare l\'app. L\'arresto forzato impedisce gli avvisi finché non riapri Privee. I messaggi arrivati durante una disconnessione potrebbero non generare avvisi: apri la conversazione per recuperarli.</string>
+    <string name="listener_delivery">Quando è attivo, l\'ascolto diretto gestisce gli avvisi al posto di UnifiedPush. Quando è disattivato, un distributore UnifiedPush installato può comunque inviare avvisi.</string>
+    <string name="listener_enable">Attiva ascolto</string>
+    <string name="listener_retry">Riprova ascolto</string>
+    <string name="listener_settings">Impostazioni</string>
+    <string name="listener_close">Chiudi</string>
+    <string name="listener_notification_settings">Impostazioni notifiche</string>
+    <string name="listener_battery_settings">Impostazioni batteria</string>
+    <string name="listener_notifications_blocked">Le notifiche o un canale di notifica necessario sono disattivati. Attivali nelle impostazioni delle notifiche Android per ricevere avvisi.</string>
+    <string name="listener_battery_exempt">Privee è esclusa dall\'ottimizzazione della batteria Android. Possono comunque applicarsi altre restrizioni del dispositivo.</string>
+    <string name="listener_settings_unavailable">Android non ha potuto aprire queste impostazioni. Apri manualmente le impostazioni dell\'app Privee.</string>
+    <string name="listener_preference_failed">Impossibile salvare l\'impostazione di ascolto in background. Riprova.</string>
 </resources>

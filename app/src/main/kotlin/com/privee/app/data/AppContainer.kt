@@ -4,6 +4,8 @@ import android.content.Context
 import com.privee.app.BuildConfig
 import com.privee.app.PriveeApplication
 import com.privee.app.push.PushRegistration
+import com.privee.app.push.BackgroundListening
+import com.privee.app.push.BackgroundMessageService
 import com.privee.net.AuthResult
 import com.privee.net.PriveeApi
 import com.privee.net.ServerUrl
@@ -42,6 +44,12 @@ class AppContainer(private val context: Context) {
     private val languages get() = (context.applicationContext as PriveeApplication).languages
     val languageTag: String get() = languages.language.tag
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val listenerPreferences = context.getSharedPreferences("background-listening", Context.MODE_PRIVATE)
+    val backgroundListening = BackgroundListening(listenerPreferences.getBoolean("enabled", false)) { enabled ->
+        check(listenerPreferences.edit().putBoolean("enabled", enabled).commit()) {
+            "Could not save background listening preference"
+        }
+    }
 
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -148,6 +156,8 @@ class AppContainer(private val context: Context) {
     /** Signs out; the keys stay on the device for the next sign-in on the same server. */
     suspend fun signOut(remote: Boolean = true) {
         val session = _session.value ?: return
+        backgroundListening.disable()
+        BackgroundMessageService.stop(context)
         _session.value = null
         session.stop()
         PushRegistration.unregister(context)

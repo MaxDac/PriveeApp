@@ -89,4 +89,26 @@
     <string name="open_on_server">Abrir em %1$s</string>
     <string name="invite_other_server">Esta ligação para %1$s é do servidor %2$s, mas está a utilizar %3$s. A sessão %1$s em %3$s pode pertencer a outra pessoa.</string>
     <string name="invite_unspecified_server">Esta ligação para %1$s não indica a que servidor pertence, mas está a utilizar %2$s. A sessão %1$s em %2$s pode pertencer a outra pessoa.</string>
+    <string name="notification_channel_listener">Ligação em segundo plano</string>
+    <string name="background_alerts">Alertas de mensagens em segundo plano</string>
+    <string name="listener_connected">À espera de novas mensagens</string>
+    <string name="listener_connecting">A ligar ou a restabelecer a ligação ao servidor de conversas</string>
+    <string name="listener_stop">Parar escuta</string>
+    <string name="listener_off">A escuta em segundo plano está desativada</string>
+    <string name="listener_paused">A escuta está ativada, mas o serviço não está em execução. Abra as definições para tentar novamente.</string>
+    <string name="listener_failed">Não foi possível iniciar a escuta em segundo plano. Verifique as definições de notificações e tente novamente.</string>
+    <string name="listener_description">Mantenha uma ligação direta ao servidor Privee quando a aplicação estiver fechada. Consome mais bateria e apresenta uma notificação de estado permanente. Não são necessários serviços Google nem um distribuidor push.</string>
+    <string name="listener_battery_guide">Se as mensagens chegarem com atraso quando o ecrã estiver desligado, permita a utilização da bateria sem restrições para o Privee nas definições do Android. O Android pode avisar que isto consome mais bateria: é uma opção com esse custo para receber alertas em segundo plano. Aceite apenas se pretender esta funcionalidade. Os nomes das definições variam consoante o dispositivo.</string>
+    <string name="listener_limits">O Android pode continuar a parar a aplicação. A paragem forçada impede os alertas até voltar a abrir o Privee. As mensagens recebidas durante uma desconexão podem não gerar alertas: abra a conversa para as recuperar.</string>
+    <string name="listener_delivery">Quando ativada, a escuta direta trata dos alertas em vez do UnifiedPush. Quando desativada, um distribuidor UnifiedPush instalado pode continuar a enviar alertas.</string>
+    <string name="listener_enable">Ativar escuta</string>
+    <string name="listener_retry">Tentar escuta novamente</string>
+    <string name="listener_settings">Definições</string>
+    <string name="listener_close">Fechar</string>
+    <string name="listener_notification_settings">Definições de notificações</string>
+    <string name="listener_battery_settings">Definições de bateria</string>
+    <string name="listener_notifications_blocked">As notificações ou um canal de notificação necessário estão desativados. Ative-os nas definições de notificações do Android para receber alertas.</string>
+    <string name="listener_battery_exempt">O Privee está isento da otimização da bateria do Android. Podem continuar a aplicar-se outras restrições do dispositivo.</string>
+    <string name="listener_settings_unavailable">O Android não conseguiu abrir estas definições. Abra manualmente as definições da aplicação Privee.</string>
+    <string name="listener_preference_failed">Não foi possível guardar a definição de escuta em segundo plano. Tente novamente.</string>
 </resources>

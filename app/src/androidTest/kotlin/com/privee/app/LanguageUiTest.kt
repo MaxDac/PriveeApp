@@ -12,10 +12,12 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.privee.app.data.ServerConfig
 import com.privee.app.data.Invite
 import com.privee.app.push.Notifications
+import com.privee.app.push.BackgroundMessageService
 import com.privee.net.AuthResult
 import com.privee.net.SessionInfo
 import kotlinx.coroutines.runBlocking
@@ -184,6 +186,20 @@ class LanguageUiTest {
                     channels.getValue(language),
                     app.getSystemService(NotificationManager::class.java).getNotificationChannel("messages").name.toString(),
                 )
+                assertEquals(
+                    context.getString(R.string.notification_channel_listener),
+                    app.getSystemService(NotificationManager::class.java)
+                        .getNotificationChannel("background-listening").name.toString(),
+                )
+                for (connected in listOf(false, true)) {
+                    val listener = Notifications.listener(app, connected)
+                    assertEquals(context.getString(R.string.background_alerts), listener.extras.getString(Notification.EXTRA_TITLE))
+                    assertEquals(
+                        context.getString(if (connected) R.string.listener_connected else R.string.listener_connecting),
+                        listener.extras.getString(Notification.EXTRA_TEXT),
+                    )
+                    assertEquals(context.getString(R.string.listener_stop), listener.actions.first().title.toString())
+                }
                 val manager = app.getSystemService(NotificationManager::class.java)
                 Notifications.newMessage(app, "sender-original", "https://chat.example.org")
                 val title = context.getString(R.string.notification_new_message_from, "sender-original")
@@ -208,6 +224,56 @@ class LanguageUiTest {
     }
 
     @Test
+    fun activeBackgroundListenerAndSettingsSurviveLanguageChanges() {
+        instrumentation.runOnMainSync {
+            app.container.selectServer(ServerConfig(server.url("/").toString().trimEnd('/'), null))
+            app.container.signedIn(app.container.server.value!!, AuthResult("test-token", SessionInfo(123, "own-session", true)))
+        }
+        launch()
+        val session = app.container.session.value!!
+        compose.onNodeWithTag("background-alert-settings").performClick()
+        compose.onNodeWithTag("enable-background-alerts").performClick()
+        val manager = app.getSystemService(NotificationManager::class.java)
+        compose.waitUntil(15_000) { app.container.backgroundListening.running.value && session.connected.value }
+        scenario!!.recreate()
+        compose.waitForIdle()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasText("Stop listening"))
+                .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        compose.onNodeWithText("Stop listening").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Close").performClick()
+        for (language in listOf(AppLanguage.Italian, AppLanguage.Portuguese, AppLanguage.Spanish, AppLanguage.French, AppLanguage.English)) {
+            select(language, "menu")
+            val strings = app.languages.localizedContext()
+            compose.waitUntil(10_000) {
+                val notification = manager.activeNotifications.firstOrNull { it.id == Notifications.LISTENER_ID }?.notification
+                notification?.extras?.getString(Notification.EXTRA_TITLE) == strings.getString(R.string.background_alerts) &&
+                    notification.extras.getString(Notification.EXTRA_TEXT) == strings.getString(R.string.listener_connected) &&
+                    notification.actions.first().title.toString() == strings.getString(R.string.listener_stop)
+            }
+            assertTrue(app.container.backgroundListening.enabled.value)
+            assertTrue(app.container.backgroundListening.running.value)
+            assertEquals(session, app.container.session.value)
+            compose.onNodeWithTag("background-alert-settings").performClick()
+            compose.onNodeWithText(strings.getString(R.string.listener_stop)).performScrollTo().assertIsDisplayed()
+            scenario!!.recreate()
+            compose.waitForIdle()
+            compose.waitUntil(10_000) {
+                compose.onAllNodes(androidx.compose.ui.test.hasText(strings.getString(R.string.listener_stop)))
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+            }
+            compose.onNodeWithText(strings.getString(R.string.listener_stop)).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText(strings.getString(R.string.listener_close)).performClick()
+        }
+        instrumentation.runOnMainSync {
+            app.container.backgroundListening.disable()
+            BackgroundMessageService.stop(app)
+        }
+        compose.waitUntil(10_000) { !app.container.backgroundListening.running.value }
+    }
+
+    @Test
     fun delayedStatusErrorsAcrossLanguageSwitchUseCurrentLocaleAndKeepFormValues() {
         instrumentation.runOnMainSync { app.container.selectServer(ServerConfig(server.url("/").toString().trimEnd('/'), null)) }
         launch()
@@ -229,11 +295,12 @@ class LanguageUiTest {
                 }
             }
             try {
-                compose.onNodeWithTag("submit").performClick()
+                androidx.test.espresso.Espresso.closeSoftKeyboard()
+                compose.onNodeWithTag("submit").performScrollTo().assertIsDisplayed().performClick()
                 assertTrue("Authentication request was not received", received.await(10, TimeUnit.SECONDS))
                 select(language)
                 compose.onNodeWithTag("session-name").assertTextContains("entered-session-123456789")
-                compose.onNodeWithTag("recovery-phrase").assertIsDisplayed()
+                compose.onNodeWithTag("recovery-phrase").performScrollTo().assertIsDisplayed()
                 release.countDown()
                 val strings = app.languages.localizedContext()
                 val expected = if (status == 401) strings.getString(R.string.auth_invalid)
@@ -264,20 +331,21 @@ class LanguageUiTest {
         compose.onNodeWithTag("go-register").performClick()
         compose.onNodeWithTag("session-name").performTextInput("name-already-taken-123456")
         compose.onNodeWithTag("recovery-phrase").performTextInput("a sufficiently long recovery phrase")
-        compose.onNodeWithTag("submit").performClick()
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("submit").performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(androidx.compose.ui.test.hasText("name already taken")).fetchSemanticsNodes().isNotEmpty()
         }
         server.takeRequest()
         select(AppLanguage.Italian)
         compose.onNodeWithTag("session-name").assertTextContains("name-already-taken-123456")
-        compose.onNodeWithTag("recovery-phrase").assertIsDisplayed()
+        compose.onNodeWithTag("recovery-phrase").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("name already taken").assertDoesNotExist()
-        compose.onNodeWithTag("submit").performClick()
+        compose.onNodeWithTag("submit").performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(androidx.compose.ui.test.hasText("nome già utilizzato")).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("nome già utilizzato").assertIsDisplayed()
+        compose.onNodeWithText("nome già utilizzato").performScrollTo().assertIsDisplayed()
         val request = server.takeRequest()
         assertEquals("it", request.headers["Accept-Language"])
         assertEquals(

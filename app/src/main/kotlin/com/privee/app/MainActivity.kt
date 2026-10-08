@@ -33,6 +33,7 @@ import com.privee.app.data.parseAppLink
 import com.privee.app.push.PushRegistration
 import com.privee.app.push.Notifications
 import com.privee.app.ui.LanguageDialog
+import com.privee.app.push.BackgroundMessageService
 import com.privee.app.ui.AuthMode
 import com.privee.app.ui.AuthScreen
 import com.privee.app.ui.ChatScreen
@@ -44,6 +45,7 @@ import com.privee.app.ui.WelcomeScreen
 class MainActivity : AppCompatActivity() {
     private val container get() = (application as PriveeApplication).container
     private val languages get() = (application as PriveeApplication).languages
+    private var notificationDenied by mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
         (newBase.applicationContext as PriveeApplication).languages.initialize()
@@ -51,7 +53,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationDenied = !granted
+            if (granted && container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -71,6 +76,12 @@ class MainActivity : AppCompatActivity() {
                             languageDialog = false
                             languages.select(it)
                             Notifications.createChannel(this)
+                            if (container.backgroundListening.running.value &&
+                                !Notifications.updateListener(this, container.session.value?.connected?.value == true)
+                            ) {
+                                container.backgroundListening.startFailed()
+                                BackgroundMessageService.stop(this)
+                            }
                         },
                         onDismiss = { languageDialog = false },
                     )
@@ -80,6 +91,18 @@ class MainActivity : AppCompatActivity() {
                 val invite by container.pendingInvite.collectAsStateWithLifecycle()
                 val selected = server
                 val current = session
+                if (notificationDenied) {
+                    AlertDialog(
+                        onDismissRequest = { notificationDenied = false },
+                        title = { Text(getString(R.string.background_alerts)) },
+                        text = { Text(getString(R.string.listener_notifications_blocked)) },
+                        confirmButton = {
+                            TextButton(onClick = { notificationDenied = false }) {
+                                Text(getString(R.string.listener_close))
+                            }
+                        },
+                    )
+                }
 
                 if (selected == null) {
                     ServerScreen(container, onLanguage)
@@ -169,6 +192,11 @@ class MainActivity : AppCompatActivity() {
         inviteFrom(intent)?.let { container.pendingInvite.value = it }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
+    }
+
     private fun onSignedIn() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -176,6 +204,7 @@ class MainActivity : AppCompatActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         PushRegistration.register(this)
+        if (container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
     }
 
     companion object {

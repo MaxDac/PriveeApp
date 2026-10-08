@@ -162,6 +162,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item { BackgroundAlerts(container, session) }
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
