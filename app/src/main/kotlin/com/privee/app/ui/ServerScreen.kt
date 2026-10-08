@@ -84,7 +84,7 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
 
 /** The first screen: the Privee server to use. Nothing else is reachable until one is selected. */
 @Composable
-fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
+fun ServerScreen(container: AppContainer, onSettings: () -> Unit) {
     val vm: ServerViewModel = viewModel { ServerViewModel(container) }
     ServerContent(
         address = vm.address,
@@ -94,7 +94,7 @@ fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
         canConnect = vm.canConnect,
         suggestion = BuildConfig.DEV_SERVER_SUGGESTION,
         onConnect = vm::connect,
-        onLanguage = onLanguage,
+        onSettings = onSettings,
     )
 }
 
@@ -108,7 +108,7 @@ fun ServerContent(
     canConnect: Boolean,
     suggestion: String,
     onConnect: () -> Unit,
-    onLanguage: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -121,7 +121,7 @@ fun ServerContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(24.dp))
-            TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
+            TextButton(onClick = onSettings, modifier = Modifier.testTag("settings")) { Text(stringResource(R.string.settings)) }
             Text(stringResource(R.string.choose_server), style = MaterialTheme.typography.headlineMedium)
             Text(
                 stringResource(R.string.choose_server_description),

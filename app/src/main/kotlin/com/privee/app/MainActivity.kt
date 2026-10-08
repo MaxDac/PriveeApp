@@ -31,7 +31,6 @@ import com.privee.app.data.serverLabel
 import com.privee.app.data.parseAppLink
 import com.privee.app.push.PushRegistration
 import com.privee.app.push.Notifications
-import com.privee.app.ui.LanguageDialog
 import com.privee.app.ui.NoPersonalizedLearning
 import com.privee.app.ui.PriveeAlertDialog
 import com.privee.app.ui.protectWindow
@@ -42,11 +41,13 @@ import com.privee.app.ui.ChatScreen
 import com.privee.app.ui.HomeScreen
 import com.privee.app.ui.PriveeTheme
 import com.privee.app.ui.ServerScreen
+import com.privee.app.ui.SettingsDialog
 import com.privee.app.ui.WelcomeScreen
 
 class MainActivity : AppCompatActivity() {
     private val container get() = (application as PriveeApplication).container
     private val languages get() = (application as PriveeApplication).languages
+    private val themes get() = (application as PriveeApplication).themes
     private var notificationDenied by mutableStateOf(false)
 
     override fun attachBaseContext(newBase: Context) {
@@ -69,14 +70,18 @@ class MainActivity : AppCompatActivity() {
         val container = container
 
         setContent {
-            PriveeTheme { NoPersonalizedLearning {
-                var languageDialog by rememberSaveable { mutableStateOf(false) }
-                val onLanguage = { languageDialog = true }
-                if (languageDialog) {
-                    LanguageDialog(
-                        selected = languages.language,
-                        onSelect = {
-                            languageDialog = false
+            val accent by themes.accent.collectAsStateWithLifecycle()
+            PriveeTheme(accent = accent) { NoPersonalizedLearning {
+                var settingsDialog by rememberSaveable { mutableStateOf(false) }
+                val onSettings = { settingsDialog = true }
+                if (settingsDialog) {
+                    SettingsDialog(
+                        language = languages.language,
+                        accent = accent,
+                        onAccent = themes::select,
+                        onLanguage = {
+                            // The new locale recreates the activity.
+                            settingsDialog = false
                             languages.select(it)
                             Notifications.createChannel(this)
                             if (container.backgroundListening.running.value &&
@@ -86,7 +91,7 @@ class MainActivity : AppCompatActivity() {
                                 BackgroundMessageService.stop(this)
                             }
                         },
-                        onDismiss = { languageDialog = false },
+                        onDismiss = { settingsDialog = false },
                     )
                 }
                 val server by container.server.collectAsStateWithLifecycle()
@@ -108,7 +113,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (selected == null) {
-                    ServerScreen(container, onLanguage)
+                    ServerScreen(container, onSettings)
                 } else if (current == null) {
                     key(selected) {
                         val nav = rememberNavController()
@@ -121,14 +126,14 @@ class MainActivity : AppCompatActivity() {
                                     onRegister = { nav.navigate("register") },
                                     onLogIn = { nav.navigate("login") },
                                     onChangeServer = container::changeServer,
-                                    onLanguage = onLanguage,
+                                    onSettings = onSettings,
                                 )
                             }
                             composable("register") {
-                                AuthScreen(container, selected, AuthMode.Register, onLanguage, onBack = nav::popBackStack)
+                                AuthScreen(container, selected, AuthMode.Register, onSettings, onBack = nav::popBackStack)
                             }
                             composable("login") {
-                                AuthScreen(container, selected, AuthMode.LogIn, onLanguage, onBack = nav::popBackStack)
+                                AuthScreen(container, selected, AuthMode.LogIn, onSettings, onBack = nav::popBackStack)
                             }
                         }
                     }
@@ -178,11 +183,11 @@ class MainActivity : AppCompatActivity() {
                     }
                     NavHost(nav, startDestination = "home") {
                         composable("home") {
-                            HomeScreen(container, current, onLanguage, onOpenChat = { nav.navigate("chat/$it") })
+                            HomeScreen(container, current, onSettings, onOpenChat = { nav.navigate("chat/$it") })
                         }
                         composable("chat/{name}") { entry ->
                             val name = entry.arguments?.getString("name").orEmpty()
-                            ChatScreen(container, current, name, onLanguage, onBack = nav::popBackStack)
+                            ChatScreen(container, current, name, onSettings, onBack = nav::popBackStack)
                         }
                     }
                 }

@@ -4,6 +4,16 @@
     <string name="notification_new_message">Nuevo mensaje</string>
     <string name="notification_open_to_read">Abre Privee para leerlo.</string>
     <string name="language">Idioma</string>
+    <string name="settings">Ajustes</string>
+    <string name="theme_colour">Color del tema</string>
+    <string name="accent_lilac">Lila</string>
+    <string name="accent_blue">Azul</string>
+    <string name="accent_teal">Verde azulado</string>
+    <string name="accent_green">Verde</string>
+    <string name="accent_amber">Ámbar</string>
+    <string name="accent_orange">Naranja</string>
+    <string name="accent_red">Rojo</string>
+    <string name="accent_pink">Rosa</string>
     <string name="back">Atrás</string>
     <string name="more">Más</string>
     <string name="cancel">Cancelar</string>

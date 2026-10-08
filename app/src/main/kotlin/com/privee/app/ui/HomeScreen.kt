@@ -80,7 +80,7 @@ fun recents(state: SignalState): List<Recent> {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -> Unit, onOpenChat: (String) -> Unit) {
+fun HomeScreen(container: AppContainer, session: PriveeSession, onSettings: () -> Unit, onOpenChat: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by session.signal.changes.collectAsStateWithLifecycle()
@@ -130,7 +130,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
         onOpen = ::open,
         onOpenChat = onOpenChat,
         onShare = ::share,
-        onLanguage = onLanguage,
+        onSettings = onSettings,
         onLogOut = { scope.launch { container.signOut() } },
         onForgetDevice = { confirmForget = true },
         onResetIdentity = { scope.launch { runCatching { session.resetIdentity() } } },
@@ -170,7 +170,7 @@ fun HomeContent(
     onOpen: () -> Unit,
     onOpenChat: (String) -> Unit,
     onShare: () -> Unit,
-    onLanguage: () -> Unit,
+    onSettings: () -> Unit,
     onLogOut: () -> Unit,
     onForgetDevice: () -> Unit,
     onResetIdentity: () -> Unit,
@@ -192,9 +192,9 @@ fun HomeContent(
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             ProtectedWindow()
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.language)) },
-                                onClick = { menu = false; onLanguage() },
-                                modifier = Modifier.testTag("language"),
+                                text = { Text(stringResource(R.string.settings)) },
+                                onClick = { menu = false; onSettings() },
+                                modifier = Modifier.testTag("settings"),
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.log_out)) },
