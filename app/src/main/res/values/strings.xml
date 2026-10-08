@@ -5,6 +5,16 @@
     <string name="notification_new_message">New message</string>
     <string name="notification_open_to_read">Open Privee to read it.</string>
     <string name="language">Language</string>
+    <string name="settings">Settings</string>
+    <string name="theme_colour">Theme colour</string>
+    <string name="accent_lilac">Lilac</string>
+    <string name="accent_blue">Blue</string>
+    <string name="accent_teal">Teal</string>
+    <string name="accent_green">Green</string>
+    <string name="accent_amber">Amber</string>
+    <string name="accent_orange">Orange</string>
+    <string name="accent_red">Red</string>
+    <string name="accent_pink">Pink</string>
     <string name="back">Back</string>
     <string name="more">More</string>
     <string name="cancel">Cancel</string>

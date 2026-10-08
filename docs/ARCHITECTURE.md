@@ -51,6 +51,16 @@ server, push payloads or notifications. "Clear history" keeps them; signing
 out and "Forget device" drop them. The editor (`HintDialog`) always advises
 against writing the other person's name.
 
+`PriveeApplication` also holds two device-local preferences, kept outside the
+container and outside any account, so logging out or forgetting the device does
+not reset them. They are never sent to a server, and `data_extraction_rules.xml`
+keeps shared preferences out of backups and device transfers:
+
+- **`LanguagePreferences`**: the app language.
+- **`ThemePreferences`**: the theme's accent colour (`AppAccent`). Lilac is the default.
+
+Both are changed from the Settings dialog (`ui/SettingsDialog.kt`).
+
 ## Data flow
 
 ```mermaid
@@ -122,6 +132,8 @@ The authoritative description of these endpoints and events is the server's
 | Local storage format | `data/*Store.kt`, `SignalState` | Migrate old data (see `AppContainer.migrateLegacyData`) |
 | Notifications | `push/Notifications.kt`, `push/PriveePushService.kt` | `MessageNotificationTest`; keep them generic (see [Other apps on the device](#other-apps-on-the-device)) |
 | Window, overlay, accessibility or keyboard protections | `ui/DeviceProtection.kt`, `MainActivity` | `DeviceProtectionTest` |
+| Theme colours or a new accent | `ui/Theme.kt` (`accentPalette`), `AppAccent` in `ThemePreferences.kt` | `ThemeTest` (contrast); colour names in every `strings.xml` |
+| Device-local setting | `PriveeApplication`, `ui/SettingsDialog.kt` | Keep it out of `AppContainer` and server calls |
 | Dependency versions | `gradle/libs.versions.toml` | Skill `dependency-upgrade` |
 | libsignal version | `libs.versions.toml` + `libsignal/source.lock.json` | Skill `libsignal-upgrade`; server WASM version |
 | Store listing | `fastlane/metadata/android/en-US/`; screenshots from `StoreScreenshotsTest` (Roborazzi) | Skill `store-screenshots` |

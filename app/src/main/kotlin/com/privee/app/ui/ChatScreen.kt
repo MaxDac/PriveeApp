@@ -119,7 +119,7 @@ class ChatViewModel(session: PriveeSession, peerName: String) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String, onLanguage: () -> Unit, onBack: () -> Unit) {
+fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String, onSettings: () -> Unit, onBack: () -> Unit) {
     val vm: ChatViewModel = viewModel(key = "chat:$peerName") { ChatViewModel(session, peerName) }
     val c = vm.conversation
     val items by c.items.collectAsStateWithLifecycle()
@@ -151,7 +151,7 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
         onDraftChange = { vm.draft = it },
         onSend = vm::send,
         onBack = onBack,
-        onLanguage = onLanguage,
+        onSettings = onSettings,
         onShowSafetyNumber = vm::showSafetyNumber,
         onClearHistory = { confirmClear = true },
         onApprove = { vm.approve() },
@@ -208,7 +208,7 @@ fun ChatContent(
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
     onBack: () -> Unit,
-    onLanguage: () -> Unit,
+    onSettings: () -> Unit,
     onShowSafetyNumber: () -> Unit,
     onClearHistory: () -> Unit,
     onApprove: () -> Unit,
@@ -291,9 +291,9 @@ fun ChatContent(
                                 enabled = hasPeer,
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.language)) },
-                                onClick = { menu = false; onLanguage() },
-                                modifier = Modifier.testTag("language"),
+                                text = { Text(stringResource(R.string.settings)) },
+                                onClick = { menu = false; onSettings() },
+                                modifier = Modifier.testTag("settings"),
                             )
                         }
                     }

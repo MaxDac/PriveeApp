@@ -131,7 +131,7 @@ class AuthViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onLanguage: () -> Unit, onBack: () -> Unit) {
+fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onSettings: () -> Unit, onBack: () -> Unit) {
     val vm: AuthViewModel = viewModel(key = "${server.config.url}:${mode.name}") { AuthViewModel(container, server, mode) }
     val register = mode == AuthMode.Register
     val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].toLanguageTag()
@@ -147,7 +147,7 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
                     }
                 },
                 actions = {
-                    TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
+                    TextButton(onClick = onSettings, modifier = Modifier.testTag("settings")) { Text(stringResource(R.string.settings)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )

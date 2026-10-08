@@ -35,7 +35,7 @@ fun WelcomeScreen(
     onRegister: () -> Unit,
     onLogIn: () -> Unit,
     onChangeServer: () -> Unit,
-    onLanguage: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -97,7 +97,7 @@ fun WelcomeScreen(
             TextButton(onClick = onChangeServer, modifier = Modifier.testTag("change-server")) {
                 Text(stringResource(R.string.change_server))
             }
-            TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
+            TextButton(onClick = onSettings, modifier = Modifier.testTag("settings")) { Text(stringResource(R.string.settings)) }
         }
     }
 }
