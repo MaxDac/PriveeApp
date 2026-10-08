@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.privee.app.data.ServerConfig
@@ -295,7 +296,7 @@ class LanguageUiTest {
                 }
             }
             try {
-                androidx.test.espresso.Espresso.closeSoftKeyboard()
+                compose.onNodeWithTag("recovery-phrase").performImeAction()
                 compose.onNodeWithTag("submit").performScrollTo().assertIsDisplayed().performClick()
                 assertTrue("Authentication request was not received", received.await(10, TimeUnit.SECONDS))
                 select(language)
@@ -331,7 +332,7 @@ class LanguageUiTest {
         compose.onNodeWithTag("go-register").performClick()
         compose.onNodeWithTag("session-name").performTextInput("name-already-taken-123456")
         compose.onNodeWithTag("recovery-phrase").performTextInput("a sufficiently long recovery phrase")
-        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("recovery-phrase").performImeAction()
         compose.onNodeWithTag("submit").performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(androidx.compose.ui.test.hasText("name already taken")).fetchSemanticsNodes().isNotEmpty()
