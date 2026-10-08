@@ -15,6 +15,8 @@ Background reading, if a step fails:
 - [`docs/RELEASING.md`](../../../docs/RELEASING.md): Release workflow, one-time setup, recovery.
 - [`docs/FDROID_VALIDATION.md`](../../../docs/FDROID_VALIDATION.md): local and buildserver builds, diffoscope.
 - [`libsignal/README.md`](../../../libsignal/README.md): source build of `libsignal_jni.so`, re-pinning.
+- [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md) and [`docs/TECHNOLOGIES.md`](../../../docs/TECHNOLOGIES.md): what changes affect reproducibility, and the stack.
+- Related skills: `libsignal-upgrade`, `dependency-upgrade`, `store-screenshots` (refresh store images before a release), `cross-repo-change` (server changes must be deployed before the app release that needs them).
 
 This file exists twice and the two copies must stay byte-identical:
 - `.claude/skills/fdroid-release/SKILL.md` (Claude Code);

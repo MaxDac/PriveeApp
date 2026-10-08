@@ -12,6 +12,8 @@ The app uses Kotlin and Jetpack Compose. It talks to the same Phoenix server as 
 | `core/net` | Privee REST API client and a minimal Phoenix channels client (OkHttp) |
 | `core/signal` | Signal protocol wrapper: key bundles, session setup, encrypt/decrypt, safety numbers |
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the data flow and where to make changes, and [docs/TECHNOLOGIES.md](docs/TECHNOLOGIES.md) for the full technology stack, including how notifications work.
+
 ## Building
 
 Requirements:
@@ -125,6 +127,17 @@ Unlike direct listening, it requires the server to send a wake-up signal through
 the distributor's push server. While direct listening is enabled, distributor
 alerts are suppressed to avoid duplicates; disable listening to use UnifiedPush
 alerts instead. No distributor is needed for direct listening.
+
+## Working on this repository (humans and AI agents)
+
+- [CLAUDE.md](CLAUDE.md) (Claude Code) and [.github/copilot-instructions.md](.github/copilot-instructions.md) (GitHub Copilot) summarise the commands, conventions and guardrails.
+- Step-by-step procedures are skills, kept as identical copies in `.claude/skills/` and `.github/skills/`:
+  - `fdroid-release`
+  - `libsignal-upgrade`
+  - `dependency-upgrade`
+  - `store-screenshots`
+  - `cross-repo-change`
+- Changes that also touch the server follow [Privee's cross-repo guide](https://github.com/MaxDac/Privee/blob/main/docs/cross-repo.md).
 
 ## License
 
