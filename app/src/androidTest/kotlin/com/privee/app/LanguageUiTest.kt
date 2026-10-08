@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -126,6 +127,7 @@ class LanguageUiTest {
         instrumentation.runOnMainSync {
             app.container.changeServer()
             app.languages.select(AppLanguage.English)
+            app.themes.select(AppAccent.Default)
         }
         server.close()
     }
@@ -137,10 +139,23 @@ class LanguageUiTest {
 
     private fun select(language: AppLanguage, menuTag: String? = null) {
         menuTag?.let { compose.onNodeWithTag(it).performClick() }
-        compose.onNodeWithTag("language").performClick()
+        compose.onNodeWithTag("settings").performClick()
         compose.onNodeWithTag("language-${language.tag}").performClick()
         compose.waitUntil(10_000) { app.languages.language == language }
         compose.waitForIdle()
+    }
+
+    @Test
+    fun accentIsSelectedFromSettingsAndSurvivesRecreation() {
+        launch()
+        compose.onNodeWithTag("settings").performClick()
+        compose.onNodeWithTag("accent-blue").performClick()
+        compose.waitUntil(10_000) { app.themes.accent.value == AppAccent.Blue }
+        assertEquals("blue", app.getSharedPreferences("appearance", 0).getString("accent", null))
+        compose.onNodeWithTag("accent-blue").assertIsSelected()
+        scenario?.recreate()
+        compose.waitForIdle()
+        assertEquals(AppAccent.Blue, ThemePreferences(app).accent.value)
     }
 
     @Test

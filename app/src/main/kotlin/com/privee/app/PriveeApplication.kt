@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 class PriveeApplication : Application() {
     lateinit var languages: LanguagePreferences
         private set
+    lateinit var themes: ThemePreferences
+        private set
     lateinit var container: AppContainer
         private set
 
@@ -28,6 +30,7 @@ class PriveeApplication : Application() {
         super.onCreate()
         languages = LanguagePreferences(this)
         languages.initialize()
+        themes = ThemePreferences(this)
         container = AppContainer(this)
         Notifications.createChannel(this)
 

@@ -76,7 +76,7 @@ class StoreScreenshotsTest {
             canConnect = false,
             suggestion = "",
             onConnect = {},
-            onLanguage = {},
+            onSettings = {},
         )
     }
 
@@ -89,7 +89,7 @@ class StoreScreenshotsTest {
             onRegister = {},
             onLogIn = {},
             onChangeServer = {},
-            onLanguage = {},
+            onSettings = {},
         )
     }
 
@@ -107,7 +107,7 @@ class StoreScreenshotsTest {
             onOpen = {},
             onOpenChat = {},
             onShare = {},
-            onLanguage = {},
+            onSettings = {},
             onLogOut = {},
             onForgetDevice = {},
             onResetIdentity = {},
@@ -129,7 +129,7 @@ class StoreScreenshotsTest {
         onDraftChange = {},
         onSend = {},
         onBack = {},
-        onLanguage = {},
+        onSettings = {},
         onShowSafetyNumber = {},
         onClearHistory = {},
         onApprove = {},
