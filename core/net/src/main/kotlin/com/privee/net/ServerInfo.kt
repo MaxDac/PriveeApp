@@ -108,10 +108,11 @@ object ServerUrl {
  * Checks that [baseUrl] (already [normalized][ServerUrl.normalize]) is a
  * Privee server this app supports, by calling `GET /api/app/info`.
  */
-suspend fun fetchServerInfo(baseUrl: String, client: OkHttpClient): ServerInfo {
+suspend fun fetchServerInfo(baseUrl: String, client: OkHttpClient, language: () -> String = { "en" }): ServerInfo {
     val base = baseUrl.toHttpUrlOrNull() ?: throw ServerCheckException(ServerProblem.InvalidUrl)
     val url = base.newBuilder().addPathSegments("api/app/info").build()
-    val request = Request.Builder().url(url).header("Accept", "application/json").get().build()
+    val request = Request.Builder().url(url).header("Accept", "application/json")
+        .header("Accept-Language", language()).get().build()
     // A redirect could hand the check to another host: the address must answer itself.
     val noRedirects = client.withoutRedirects()
     val body = try {

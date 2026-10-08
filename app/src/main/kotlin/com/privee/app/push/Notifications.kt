@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.privee.app.MainActivity
 import com.privee.app.R
+import com.privee.app.localizedContext
 import com.privee.app.data.appLink
 
 /** Message notifications: they never contain message text, only the sender. */
@@ -23,13 +24,15 @@ object Notifications {
     fun createChannel(context: Context) {
         val channel = NotificationChannel(
             CHANNEL,
-            context.getString(R.string.notification_channel_messages),
+            context.localizedContext().getString(R.string.notification_channel_messages),
             NotificationManager.IMPORTANCE_HIGH,
         )
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     fun newMessage(context: Context, from: String?, serverUrl: String?) {
+        val strings = context.localizedContext()
+        createChannel(context)
         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
@@ -50,14 +53,14 @@ object Notifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val title = if (from != null) {
-            context.getString(R.string.notification_new_message_from, from)
+            strings.getString(R.string.notification_new_message_from, from)
         } else {
-            context.getString(R.string.notification_new_message)
+            strings.getString(R.string.notification_new_message)
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(context.getString(R.string.notification_open_to_read))
+            .setContentText(strings.getString(R.string.notification_open_to_read))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

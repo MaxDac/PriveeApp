@@ -33,6 +33,29 @@ Privee has no default server: anyone can deploy their own (fork) of [Privee](htt
 
 To switch servers, sign out and tap **Change server** on the welcome screen. The account and Signal state (keys, sessions and history) are stored per server, so one server never reuses another server's identity. Share links point to the selected server. The app link `privee://share/<session name>?server=<URL-encoded server>` opens a conversation directly only when its server is the selected one; otherwise (or for legacy links without `server`) the app names both servers and asks before opening. The welcome and home screens identify the server by its address; the `name` it reports about itself is only a secondary hint.
 
+## Language
+
+The app starts in **English**, regardless of the device language. Choose **Language** on the server,
+welcome or sign-in screen, or in the home/conversation overflow menu. The five explicit choices are
+English, Italian, European Portuguese (`pt-PT`), Spanish and French; there is no system-default choice.
+The language belongs to this installation, not to an account or server, and survives restarting,
+logging out, forgetting a device and changing servers. Switching language preserves entered values,
+conversation drafts and navigation. Previously received server validation errors are cleared; submit
+again to receive errors in the new language.
+
+Translations use Android resources and AppCompat per-app locales (including Android 13+ app-language
+settings). Notifications and their channel name use the selected language too. Each REST request sends
+the current `Accept-Language`, including anonymous server checks and authentication. Compatible servers
+translate the existing `errors[field]` arrays while keeping API v1, status codes and machine error values
+unchanged. Older servers remain usable, but may return untranslated validation text. The app renders
+other API failures as localized messages rather than displaying raw machine codes. User messages,
+session names, server addresses and encryption identifiers are never translated.
+
+Resource parity and placeholder checks run with the unit tests. Locale rendering, restart/recreation,
+validation clearing and notification-context checks can also be run on a connected Android emulator:
+`./gradlew :app:connectedDebugAndroidTest`. For Windows, use `.\gradlew.bat` instead of `./gradlew`;
+set `ANDROID_HOME` to the installed Android SDK if it is not already configured.
+
 ### Release signing
 
 `./gradlew :app:assembleRelease` produces an unsigned APK unless signing is configured. To sign it, do one of the following:

@@ -61,6 +61,7 @@ android {
         applicationId = "com.privee.app"
         minSdk = 26
         targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
     }
@@ -109,6 +110,12 @@ android {
         buildConfig = true
     }
 
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     // Reproducible builds: no Google-encrypted dependency metadata (F-Droid).
     dependenciesInfo {
         includeInApk = false
@@ -153,6 +160,7 @@ dependencies {
     implementation(libs.libsignal.android)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.unifiedpush.connector)
     implementation(libs.kotlinx.coroutines.android)
@@ -164,6 +172,13 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.core)
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.compose.ui.test.manifest)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.okhttp.mockwebserver)
 
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.runtime.ktx)

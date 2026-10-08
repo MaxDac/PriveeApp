@@ -21,12 +21,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.privee.app.R
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -42,22 +45,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** What to tell the user when [e] prevents using a server. */
-fun serverProblemMessage(e: ServerCheckException): String = when (e.problem) {
-    ServerProblem.InvalidUrl -> "This is not a valid server address."
-    ServerProblem.CleartextNotAllowed -> "The server must use HTTPS (an address starting with https://)."
-    ServerProblem.Unreachable -> "Cannot reach the server. Check the address and your connection."
-    ServerProblem.NotPrivee -> "This is not a Privee server."
-    ServerProblem.UnsupportedVersion ->
-        "This Privee server uses API version ${e.apiVersion ?: "unknown"}, which this app does not support. " +
-            "Update the app or ask the server administrator."
+fun serverProblemResource(problem: ServerProblem): Int = when (problem) {
+    ServerProblem.InvalidUrl -> R.string.server_invalid_url
+    ServerProblem.CleartextNotAllowed -> R.string.server_https_required
+    ServerProblem.Unreachable -> R.string.server_unreachable
+    ServerProblem.NotPrivee -> R.string.server_not_privee
+    ServerProblem.UnsupportedVersion -> R.string.server_unsupported_version
 }
 
 class ServerViewModel(private val container: AppContainer) : ViewModel() {
     var address by mutableStateOf("")
     var busy by mutableStateOf(false)
         private set
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<ServerCheckException?>(null)
         private set
 
     val canConnect: Boolean
@@ -72,9 +72,9 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
                 val config = container.checkServer(address)
                 withContext(Dispatchers.IO) { container.selectServer(config) }
             } catch (e: ServerCheckException) {
-                error = serverProblemMessage(e)
+                error = e
             } catch (_: Exception) {
-                error = "Cannot reach the server. Check the address and your connection."
+                error = ServerCheckException(ServerProblem.Unreachable)
             } finally {
                 busy = false
             }
@@ -84,7 +84,7 @@ class ServerViewModel(private val container: AppContainer) : ViewModel() {
 
 /** The first screen: the Privee server to use. Nothing else is reachable until one is selected. */
 @Composable
-fun ServerScreen(container: AppContainer) {
+fun ServerScreen(container: AppContainer, onLanguage: () -> Unit) {
     val vm: ServerViewModel = viewModel { ServerViewModel(container) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -98,18 +98,18 @@ fun ServerScreen(container: AppContainer) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(24.dp))
-            Text("Choose your server", style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
+            Text(stringResource(R.string.choose_server), style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Privee has no central server: anyone can run one. Enter the address of the Privee server you " +
-                    "want to use, for example your own deployment. Your session and keys belong to that server.",
+                stringResource(R.string.choose_server_description),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
                 value = vm.address,
                 onValueChange = { vm.address = it },
-                label = { Text("Server address") },
-                placeholder = { Text("https://privee.example.org") },
+                label = { Text(stringResource(R.string.server_address)) },
+                placeholder = { Text(stringResource(R.string.server_address_example)) },
                 isError = vm.error != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
@@ -124,13 +124,17 @@ fun ServerScreen(container: AppContainer) {
             if (BuildConfig.DEV_SERVER_SUGGESTION.isNotEmpty()) {
                 AssistChip(
                     onClick = { vm.address = BuildConfig.DEV_SERVER_SUGGESTION },
-                    label = { Text("Use ${BuildConfig.DEV_SERVER_SUGGESTION}") },
+                    label = { Text(stringResource(R.string.use_server, BuildConfig.DEV_SERVER_SUGGESTION)) },
                     modifier = Modifier.testTag("server-suggestion"),
                 )
             }
             vm.error?.let {
                 Text(
-                    it,
+                    if (it.problem == ServerProblem.UnsupportedVersion) {
+                        stringResource(R.string.server_unsupported_version, it.apiVersion?.toString() ?: stringResource(R.string.unknown))
+                    } else {
+                        stringResource(serverProblemResource(it.problem))
+                    },
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.testTag("server-error"),
@@ -144,7 +148,7 @@ fun ServerScreen(container: AppContainer) {
                 if (vm.busy) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("Connect")
+                    Text(stringResource(R.string.connect))
                 }
             }
         }

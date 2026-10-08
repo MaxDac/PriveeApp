@@ -2,6 +2,7 @@ package com.privee.app.data
 
 import android.content.Context
 import com.privee.app.BuildConfig
+import com.privee.app.PriveeApplication
 import com.privee.app.push.PushRegistration
 import com.privee.net.AuthResult
 import com.privee.net.PriveeApi
@@ -38,6 +39,8 @@ class ActiveServer(val config: ServerConfig, val api: PriveeApi, val directory: 
 
 /** Application-wide dependencies, the selected server and the signed-in session. */
 class AppContainer(private val context: Context) {
+    private val languages get() = (context.applicationContext as PriveeApplication).languages
+    val languageTag: String get() = languages.language.tag
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val client: OkHttpClient = OkHttpClient.Builder()
@@ -83,7 +86,7 @@ class AppContainer(private val context: Context) {
      */
     suspend fun checkServer(address: String): ServerConfig {
         val url = ServerUrl.normalize(address, allowCleartext = BuildConfig.ALLOW_CLEARTEXT)
-        val info = fetchServerInfo(url, client)
+        val info = fetchServerInfo(url, client) { languages.language.tag }
         return ServerConfig(url, info.name)
     }
 
@@ -113,7 +116,7 @@ class AppContainer(private val context: Context) {
     private fun activate(config: ServerConfig): ActiveServer {
         val server = ActiveServer(
             config = config,
-            api = PriveeApi(config.url, client),
+            api = PriveeApi(config.url, client) { languages.language.tag },
             directory = serverDirectory(context, config),
         )
         _server.value = server

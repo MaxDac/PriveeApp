@@ -30,7 +30,7 @@ class RecentsTest {
 
         assertEquals(
             listOf(
-                Recent("alice-session", "You: hello", 30),
+                Recent("alice-session", "hello", 30, outgoing = true),
                 Recent("bob-session", "…", 20),
                 Recent("carol-session", null, 0),
             ),

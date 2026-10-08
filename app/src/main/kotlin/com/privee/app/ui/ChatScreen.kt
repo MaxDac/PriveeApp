@@ -47,11 +47,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import com.privee.app.R
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +81,8 @@ class ChatViewModel(session: PriveeSession, peerName: String) : ViewModel() {
     var draft by mutableStateOf("")
     var safetyNumber by mutableStateOf<String?>(null)
         private set
+    var safetyNumberVisible by mutableStateOf(false)
+        private set
 
     init {
         conversation.start()
@@ -92,11 +98,15 @@ class ChatViewModel(session: PriveeSession, peerName: String) : ViewModel() {
     }
 
     fun showSafetyNumber() {
-        viewModelScope.launch(Dispatchers.IO) { safetyNumber = conversation.safetyNumber() ?: "Not available yet." }
+        viewModelScope.launch(Dispatchers.IO) {
+            safetyNumber = conversation.safetyNumber()
+            safetyNumberVisible = true
+        }
     }
 
     fun hideSafetyNumber() {
         safetyNumber = null
+        safetyNumberVisible = false
     }
 
     fun approve() = viewModelScope.launch(Dispatchers.IO) { conversation.approveIdentity() }
@@ -110,7 +120,7 @@ class ChatViewModel(session: PriveeSession, peerName: String) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String, onBack: () -> Unit) {
+fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String, onLanguage: () -> Unit, onBack: () -> Unit) {
     val vm: ChatViewModel = viewModel(key = "chat:$peerName") { ChatViewModel(session, peerName) }
     val c = vm.conversation
     val items by c.items.collectAsStateWithLifecycle()
@@ -120,8 +130,8 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
     val peerId by c.peerId.collectAsStateWithLifecycle()
     val deviceState by session.deviceState.collectAsStateWithLifecycle()
     val connected by session.connected.collectAsStateWithLifecycle()
-    var menu by remember { mutableStateOf(false) }
-    var confirmClear by remember { mutableStateOf(false) }
+    var menu by rememberSaveable { mutableStateOf(false) }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     DisposableEffect(peerName) {
@@ -147,7 +157,7 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                                 ConnectionDot(connected)
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    if (connected) "End-to-end encrypted" else "Connecting…",
+                                    stringResource(if (connected) R.string.encrypted else R.string.connecting),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -156,16 +166,16 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { menu = true }, modifier = Modifier.testTag("chat-menu")) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Safety number") },
+                                text = { Text(stringResource(R.string.safety_number)) },
                                 onClick = {
                                     menu = false
                                     vm.showSafetyNumber()
@@ -173,12 +183,17 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                                 enabled = peerId != null,
                             )
                             DropdownMenuItem(
-                                text = { Text("Clear history") },
+                                text = { Text(stringResource(R.string.clear_history)) },
                                 onClick = {
                                     menu = false
                                     confirmClear = true
                                 },
                                 enabled = peerId != null,
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.language)) },
+                                onClick = { menu = false; onLanguage() },
+                                modifier = Modifier.testTag("language"),
                             )
                         }
                     }
@@ -189,7 +204,7 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
             if (notFound) {
-                Banner("There is no session named “$peerName”. Check the name or link and try again.")
+                Banner(stringResource(R.string.peer_not_found, peerName))
             }
             if (deviceState == DeviceState.NeedsReset || deviceState == DeviceState.Superseded) {
                 Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -198,20 +213,20 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
             }
             if (identityChanged) {
                 Banner(
-                    "$peerName's safety number has changed. They may have reset encryption or logged in on a new device. Verify it with them before continuing.",
+                    stringResource(R.string.identity_changed, peerName),
                     tag = "identity-banner",
                 ) {
-                    TextButton(onClick = vm::showSafetyNumber) { Text("View safety number") }
-                    TextButton(onClick = { vm.approve() }, modifier = Modifier.testTag("approve-identity")) { Text("Approve") }
+                    TextButton(onClick = vm::showSafetyNumber) { Text(stringResource(R.string.view_safety_number)) }
+                    TextButton(onClick = { vm.approve() }, modifier = Modifier.testTag("approve-identity")) { Text(stringResource(R.string.approve)) }
                 }
             }
             notice?.let {
                 val text = when (it) {
-                    ChatNotice.NoPeerKeys -> "$peerName has no encryption keys yet. Your message will be delivered once they open Privee."
-                    ChatNotice.SendFailed -> "The message could not be sent. It will be retried automatically."
-                    ChatNotice.SyncFailed -> "Could not fetch new messages. Retrying when the connection is back."
+                    ChatNotice.NoPeerKeys -> stringResource(R.string.no_peer_keys, peerName)
+                    ChatNotice.SendFailed -> stringResource(R.string.send_failed)
+                    ChatNotice.SyncFailed -> stringResource(R.string.sync_failed)
                 }
-                Banner(text, tag = "notice") { TextButton(onClick = c::dismissNotice) { Text("Dismiss") } }
+                Banner(text, tag = "notice") { TextButton(onClick = c::dismissNotice) { Text(stringResource(R.string.dismiss)) } }
             }
 
             LazyColumn(
@@ -229,7 +244,7 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                             Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.size(8.dp))
                             Text(
-                                "Messages are end-to-end encrypted and stored only on your devices.",
+                                stringResource(R.string.messages_empty),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -246,7 +261,7 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                 OutlinedTextField(
                     value = vm.draft,
                     onValueChange = { vm.draft = it },
-                    placeholder = { Text("Message") },
+                    placeholder = { Text(stringResource(R.string.message)) },
                     enabled = canSend,
                     maxLines = 5,
                     shape = RoundedCornerShape(24.dp),
@@ -259,42 +274,47 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
                     enabled = canSend && vm.draft.isNotBlank(),
                     modifier = Modifier.size(52.dp).testTag("send"),
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.send))
                 }
             }
         }
     }
 
-    vm.safetyNumber?.let { number ->
+    if (vm.safetyNumberVisible) {
         AlertDialog(
             onDismissRequest = vm::hideSafetyNumber,
-            title = { Text("Safety number") },
+            title = { Text(stringResource(R.string.safety_number)) },
             text = {
                 Column {
                     Text(
-                        "Compare these numbers with $peerName in person or over another channel. If they match, your conversation is secure.",
+                        stringResource(R.string.safety_number_description, peerName),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(Modifier.size(16.dp))
-                    Text(number.chunked(5).chunked(4).joinToString("\n") { it.joinToString(" ") }, style = SafetyNumberStyle)
+                    val number = vm.safetyNumber
+                    if (number == null) {
+                        Text(stringResource(R.string.safety_number_unavailable))
+                    } else {
+                        Text(number.chunked(5).chunked(4).joinToString("\n") { it.joinToString(" ") }, style = SafetyNumberStyle)
+                    }
                 }
             },
-            confirmButton = { TextButton(onClick = vm::hideSafetyNumber) { Text("Close") } },
+            confirmButton = { TextButton(onClick = vm::hideSafetyNumber) { Text(stringResource(R.string.close)) } },
         )
     }
 
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Clear history?") },
-            text = { Text("Delete all messages of this conversation from this device?") },
+            title = { Text(stringResource(R.string.clear_history_title)) },
+            text = { Text(stringResource(R.string.clear_history_description)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
                     vm.clearHistory()
-                }) { Text("Clear") }
+                }) { Text(stringResource(R.string.clear)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -312,10 +332,10 @@ private fun Banner(text: String, tag: String = "banner", actions: @Composable ()
     }
 }
 
-private val timeFormat: DateFormat = DateFormat.getTimeInstance(DateFormat.SHORT)
-
 @Composable
 private fun Bubble(item: ChatItem) {
+    val locale = LocalConfiguration.current.locales[0]
+    val timeFormat = remember(locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale) }
     val outgoing = item.outgoing
     Box(Modifier.fillMaxWidth(), contentAlignment = if (outgoing) Alignment.CenterEnd else Alignment.CenterStart) {
         Column(
@@ -336,10 +356,10 @@ private fun Bubble(item: ChatItem) {
             if (item.text != null) {
                 Text(item.text, color = color, style = MaterialTheme.typography.bodyLarge)
             } else {
-                Text("This message could not be decrypted.", color = color, fontStyle = FontStyle.Italic)
+                Text(stringResource(R.string.decryption_failed), color = color, fontStyle = FontStyle.Italic)
             }
             Text(
-                (if (item.pending) "Sending… " else "") + timeFormat.format(Date(item.ts)),
+                timeFormat.format(Date(item.ts)).let { if (item.pending) stringResource(R.string.sending_time, it) else it },
                 color = color.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.align(Alignment.End),

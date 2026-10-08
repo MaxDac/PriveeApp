@@ -72,11 +72,3 @@ fun parseAppLink(link: String): Invite? {
  * name the server reports about itself, it can't be spoofed by the server.
  */
 fun serverLabel(serverUrl: String) = serverUrl.removePrefix("https://")
-
-/** The warning shown before opening [invite] on [selectedUrl], when it is not [for it][Invite.isFor]. */
-fun inviteMismatchMessage(invite: Invite, selectedUrl: String): String {
-    val selected = serverLabel(selectedUrl)
-    val origin = invite.server?.let { "is for the server ${serverLabel(it)}" } ?: "doesn't say which server it is for"
-    return "This link to ${invite.name} $origin, but you are using $selected. " +
-        "The session ${invite.name} on $selected may belong to someone else."
-}

@@ -45,7 +45,7 @@ open class ApiException(
 class UnauthorizedException(error: String?) : ApiException(401, error)
 
 /** Client of the Privee native app REST API (`/api/app`). */
-class PriveeApi(baseUrl: String, client: OkHttpClient) {
+class PriveeApi(baseUrl: String, client: OkHttpClient, private val language: () -> String = { "en" }) {
     private val base: HttpUrl = baseUrl.toHttpUrl()
     private val client = client.withoutRedirects()
 
@@ -86,6 +86,7 @@ class PriveeApi(baseUrl: String, client: OkHttpClient) {
     private fun request(path: String, token: String? = null): Request.Builder {
         val url = base.newBuilder().addPathSegments("api/app/$path").build()
         val builder = Request.Builder().url(url).header("Accept", "application/json")
+            .header("Accept-Language", language())
         if (token != null) builder.header("Authorization", "Bearer $token")
         return builder
     }

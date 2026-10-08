@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class PriveeApplication : Application() {
+    lateinit var languages: LanguagePreferences
+        private set
     lateinit var container: AppContainer
         private set
 
@@ -24,6 +26,8 @@ class PriveeApplication : Application() {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
+        languages = LanguagePreferences(this)
+        languages.initialize()
         container = AppContainer(this)
         Notifications.createChannel(this)
 
