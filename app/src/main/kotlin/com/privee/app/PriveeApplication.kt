@@ -43,8 +43,9 @@ class PriveeApplication : Application() {
             container.session
                 .flatMapLatest { session -> session?.incoming?.map { session.server.config.url to it } ?: emptyFlow() }
                 .collect { (serverUrl, notice) ->
-                    val onScreen = container.foreground.value && container.activeChat.value == notice.from
-                    if (!onScreen) Notifications.newMessage(this@PriveeApplication, notice.from, serverUrl)
+                    if (Notifications.shouldNotifySocket(container.foreground.value, container.activeChat.value, notice.from)) {
+                        Notifications.newMessage(this@PriveeApplication, notice.from, serverUrl)
+                    }
                 }
         }
     }

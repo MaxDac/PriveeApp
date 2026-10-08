@@ -29,6 +29,7 @@ import com.privee.app.data.Invite
 import com.privee.app.data.inviteMismatchMessage
 import com.privee.app.data.parseAppLink
 import com.privee.app.push.PushRegistration
+import com.privee.app.push.BackgroundMessageService
 import com.privee.app.ui.AuthMode
 import com.privee.app.ui.AuthScreen
 import com.privee.app.ui.ChatScreen
@@ -39,9 +40,12 @@ import com.privee.app.ui.WelcomeScreen
 
 class MainActivity : ComponentActivity() {
     private val container get() = (application as PriveeApplication).container
-
+    private var notificationDenied by mutableStateOf(false)
     private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationDenied = !granted
+            if (granted && container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -56,6 +60,18 @@ class MainActivity : ComponentActivity() {
                 val invite by container.pendingInvite.collectAsStateWithLifecycle()
                 val selected = server
                 val current = session
+                if (notificationDenied) {
+                    AlertDialog(
+                        onDismissRequest = { notificationDenied = false },
+                        title = { Text(getString(R.string.background_alerts)) },
+                        text = { Text(getString(R.string.listener_notifications_blocked)) },
+                        confirmButton = {
+                            TextButton(onClick = { notificationDenied = false }) {
+                                Text(getString(R.string.listener_close))
+                            }
+                        },
+                    )
+                }
 
                 if (selected == null) {
                     ServerScreen(container)
@@ -134,6 +150,11 @@ class MainActivity : ComponentActivity() {
         inviteFrom(intent)?.let { container.pendingInvite.value = it }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
+    }
+
     private fun onSignedIn() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -141,6 +162,7 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         PushRegistration.register(this)
+        if (container.backgroundListening.enabled.value) BackgroundMessageService.start(this)
     }
 
     companion object {
