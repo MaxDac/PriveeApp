@@ -153,13 +153,17 @@ class AppContainer(private val context: Context) {
         runCatching { session.server.api.registerPush(session.account.token, endpoint) }
     }
 
-    /** Signs out; the keys stay on the device for the next sign-in on the same server. */
+    /**
+     * Signs out; the keys stay on the device for the next sign-in on the same server,
+     * but the local hints about peers are removed.
+     */
     suspend fun signOut(remote: Boolean = true) {
         val session = _session.value ?: return
         backgroundListening.disable()
         BackgroundMessageService.stop(context)
         _session.value = null
         session.stop()
+        runCatching { session.signal.clearPeerHints() }
         PushRegistration.unregister(context)
         val api = session.server.api
         if (remote) {

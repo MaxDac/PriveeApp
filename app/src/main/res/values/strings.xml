@@ -122,4 +122,13 @@
     <string name="listener_battery_exempt">Privee is exempt from Android battery optimization. Other device restrictions can still apply.</string>
     <string name="listener_settings_unavailable">Android could not open these settings. Open Privee\'s app settings manually.</string>
     <string name="listener_preference_failed">Could not save the background listening setting. Please retry.</string>
+    <string name="hint_add">Add hint</string>
+    <string name="hint_edit">Edit hint</string>
+    <string name="hint_title">Hint for %1$s</string>
+    <string name="hint_advice">Only you can see this hint, and only on this device. Don\'t write their name: anyone who unlocks this device could read it.</string>
+    <string name="hint_label">Hint</string>
+    <string name="hint_placeholder">e.g. book club</string>
+    <string name="save">Save</string>
+    <string name="remove">Remove</string>
+    <string name="hint_long_press">Long-press a conversation to add a private hint.</string>
 </resources>

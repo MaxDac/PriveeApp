@@ -3,7 +3,7 @@ package com.privee.app.ui
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,15 +66,24 @@ import com.privee.signal.SignalState
 import kotlinx.coroutines.launch
 
 /** A conversation of the local history, for the home screen. */
-data class Recent(val peerName: String, val preview: String?, val ts: Long, val outgoing: Boolean = false)
+data class Recent(
+    val peerName: String,
+    val preview: String?,
+    val ts: Long,
+    val outgoing: Boolean = false,
+    val peerId: Long? = null,
+    /** The user's local note about who the peer is. */
+    val hint: String? = null,
+)
 
 fun recents(state: SignalState): List<Recent> {
     val last = state.history.values.groupBy { it.peerId }.mapValues { (_, rows) -> rows.maxBy { it.ts } }
     return state.peers.mapNotNull { (id, meta) ->
         val name = meta.name ?: return@mapNotNull null
-        val row = last[id.toLongOrNull()]
+        val peerId = id.toLongOrNull()
+        val row = last[peerId]
         val preview = row?.let { it.plaintext ?: "…" }
-        Recent(name, preview, row?.ts ?: 0, row?.direction == Direction.Out)
+        Recent(name, preview, row?.ts ?: 0, row?.direction == Direction.Out, peerId, meta.hint)
     }.sortedByDescending { it.ts }
 }
 
@@ -89,6 +98,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onSettings: () -
     var confirmForget by rememberSaveable { mutableStateOf(false) }
     var peer by rememberSaveable { mutableStateOf("") }
     var peerError by rememberSaveable { mutableStateOf(false) }
+    var editingHint by rememberSaveable { mutableStateOf<String?>(null) }
     val ownName = session.account.session.sessionName
     val shareText = stringResource(R.string.share_text, session.server.shareLink(ownName), session.server.appLink(ownName))
     val shareTitle = stringResource(R.string.share_session)
@@ -115,12 +125,13 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onSettings: () -
         }
     }
 
+    val recents = recents(state)
     HomeContent(
         ownName = ownName,
         serverLabel = session.server.config.label,
         connected = connected,
         deviceState = deviceState,
-        recents = recents(state),
+        recents = recents,
         peer = peer,
         peerError = peerError,
         onPeerChange = {
@@ -135,7 +146,21 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onSettings: () -
         onForgetDevice = { confirmForget = true },
         onResetIdentity = { scope.launch { runCatching { session.resetIdentity() } } },
         alerts = { BackgroundAlerts(container, session) },
+        onEditHint = { editingHint = it.peerName },
     )
+
+    recents.firstOrNull { it.peerName == editingHint }?.let { recent ->
+        val peerId = recent.peerId
+        HintDialog(
+            peerName = recent.peerName,
+            current = recent.hint,
+            onSave = { hint ->
+                editingHint = null
+                if (peerId != null) scope.launch { runCatching { session.signal.setPeerHint(peerId, hint) } }
+            },
+            onDismiss = { editingHint = null },
+        )
+    }
 
     if (confirmForget) {
         PriveeAlertDialog(
@@ -175,6 +200,7 @@ fun HomeContent(
     onForgetDevice: () -> Unit,
     onResetIdentity: () -> Unit,
     alerts: @Composable () -> Unit,
+    onEditHint: (Recent) -> Unit = {},
 ) {
     var menu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -287,10 +313,15 @@ fun HomeContent(
             if (recents.isNotEmpty()) {
                 item {
                     Text(stringResource(R.string.conversations_device), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                    Text(
+                        stringResource(R.string.hint_long_press),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             items(recents, key = { it.peerName }) { recent ->
-                RecentRow(recent) { onOpenChat(recent.peerName) }
+                RecentRow(recent, onClick = { onOpenChat(recent.peerName) }, onLongClick = { onEditHint(recent) })
             }
         }
     }
@@ -337,20 +368,35 @@ fun DeviceBanner(state: DeviceState, onReset: () -> Unit) {
 }
 
 @Composable
-private fun RecentRow(recent: Recent, onClick: () -> Unit) {
+private fun RecentRow(recent: Recent, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = if (recent.peerId != null) onLongClick else null,
+                onLongClickLabel = stringResource(if (recent.hint == null) R.string.hint_add else R.string.hint_edit),
+            )
+            .padding(16.dp)
+            .testTag("recent-${recent.peerName}"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(recent.peerName)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(recent.peerName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            recent.hint?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("recent-hint"),
+                )
+            }
             recent.preview?.let {
                 Text(
                     if (recent.outgoing) stringResource(R.string.outgoing_preview, it) else it,
