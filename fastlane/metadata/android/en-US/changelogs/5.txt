@@ -1,0 +1,2 @@
+Add a private hint to a conversation to remember who you are talking to: long-press it in the list, or use the chat menu. Hints stay on this device only and are never sent; avoid writing the other person's name.
+New Settings dialog: choose the language and one of eight accent colours.
