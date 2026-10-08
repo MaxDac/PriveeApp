@@ -61,6 +61,7 @@ android {
         applicationId = "com.privee.app"
         minSdk = 26
         targetSdk = 36
+        testInstrumentationRunner = "com.privee.app.push.BackgroundListenerInstrumentation"
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
     }
