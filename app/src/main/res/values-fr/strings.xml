@@ -110,4 +110,13 @@
     <string name="listener_battery_exempt">Privee est exempté de l\'optimisation de la batterie Android. D\'autres restrictions de l\'appareil peuvent toujours s\'appliquer.</string>
     <string name="listener_settings_unavailable">Android n\'a pas pu ouvrir ces paramètres. Ouvrez manuellement les paramètres de l\'application Privee.</string>
     <string name="listener_preference_failed">Impossible d\'enregistrer le paramètre d\'écoute en arrière-plan. Réessayez.</string>
+    <string name="hint_add">Ajouter un indice</string>
+    <string name="hint_edit">Modifier l\'indice</string>
+    <string name="hint_title">Indice pour %1$s</string>
+    <string name="hint_advice">Vous seul voyez cet indice, et uniquement sur cet appareil. N\'écrivez pas son nom : toute personne qui déverrouille cet appareil pourrait le lire.</string>
+    <string name="hint_label">Indice</string>
+    <string name="hint_placeholder">ex. club de lecture</string>
+    <string name="save">Enregistrer</string>
+    <string name="remove">Supprimer</string>
+    <string name="hint_long_press">Appuyez longuement sur une conversation pour ajouter un indice privé.</string>
 </resources>

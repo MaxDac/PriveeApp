@@ -517,6 +517,23 @@ class SignalClient(
         state = state.copy(history = state.history.filterValues { it.peerId != peerId })
     }
 
+    /**
+     * Sets the local hint of [peerId], trimmed to one line of at most [MAX_HINT_LENGTH]
+     * characters; a blank hint removes it. Returns the stored hint.
+     */
+    suspend fun setPeerHint(peerId: Long, hint: String?): String? = transaction {
+        val normalized = normalizeHint(hint)
+        if (peer(peerId).hint != normalized) putPeer(peerId, peer(peerId).copy(hint = normalized))
+        normalized
+    }
+
+    /** Removes the local hints of every peer. */
+    suspend fun clearPeerHints() = transaction {
+        if (state.peers.values.any { it.hint != null }) {
+            state = state.copy(peers = state.peers.mapValues { (_, meta) -> meta.copy(hint = null) })
+        }
+    }
+
     // -- Sending ------------------------------------------------------------------
 
     suspend fun openConversation(chat: ServerCall): String {
@@ -637,6 +654,19 @@ class SignalClient(
         private const val PQXDH_VERSION = 4
         const val FINGERPRINT_VERSION = 2
         const val FINGERPRINT_ITERATIONS = 5200
+        const val MAX_HINT_LENGTH = 40
+
+        /** Collapses whitespace to single spaces and limits the length; blank becomes `null`. */
+        fun normalizeHint(hint: String?): String? {
+            val collapsed = hint?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
+            if (collapsed.isEmpty()) return null
+            val end = if (collapsed.codePointCount(0, collapsed.length) > MAX_HINT_LENGTH) {
+                collapsed.offsetByCodePoints(0, MAX_HINT_LENGTH)
+            } else {
+                collapsed.length
+            }
+            return collapsed.substring(0, end).trimEnd()
+        }
 
         internal val json = Json { ignoreUnknownKeys = true }
 

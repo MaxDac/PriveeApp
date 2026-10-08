@@ -219,6 +219,57 @@ class SignalClientTest {
     }
 
     @Test
+    fun `peer hints are local, normalized and survive clearing the history`() = runTest {
+        val storage = MemoryStorage()
+        val a = client(alice, storage)
+        a.ensureKeys()
+        client(bob).ensureKeys()
+        a.send(server.chat(alice, bob), bob, "hello")
+
+        val messagesBefore = server.messages.size
+        assertEquals("from the gym", a.setPeerHint(bob, "  from \n the   gym "))
+        assertEquals("from the gym", a.changes.value.peers[bob.toString()]?.hint)
+        assertEquals(messagesBefore, server.messages.size)
+
+        a.clearHistory(bob)
+        assertEquals("from the gym", client(alice, storage).changes.value.peers[bob.toString()]?.hint)
+
+        assertNull(a.setPeerHint(bob, "   "))
+        assertNull(a.changes.value.peers[bob.toString()]?.hint)
+    }
+
+    @Test
+    fun `clearing peer hints keeps the rest of the peer metadata`() = runTest {
+        val a = client(alice)
+        a.ensureKeys()
+        client(bob).ensureKeys()
+        a.send(server.chat(alice, bob), bob, "hello")
+        a.setPeerHint(bob, "neighbour")
+        val before = a.changes.value.peers.getValue(bob.toString())
+
+        a.clearPeerHints()
+
+        assertEquals(before.copy(hint = null), a.changes.value.peers.getValue(bob.toString()))
+        a.setPeerHint(bob, "neighbour")
+        a.wipe()
+        assertTrue(a.changes.value.peers.isEmpty())
+    }
+
+    @Test
+    fun `normalizeHint limits the length by code points`() {
+        assertNull(SignalClient.normalizeHint(null))
+        assertNull(SignalClient.normalizeHint(" \t\n"))
+        val long = "😀".repeat(SignalClient.MAX_HINT_LENGTH + 5)
+        assertEquals("😀".repeat(SignalClient.MAX_HINT_LENGTH), SignalClient.normalizeHint(long))
+    }
+
+    @Test
+    fun `state without hints still decodes`() {
+        val state = SignalClient.json.decodeFromString(SignalState.serializer(), """{"peers":{"2":{"name":"bob"}}}""")
+        assertEquals(PeerMeta(name = "bob"), state.peers["2"])
+    }
+
+    @Test
     fun `a new epoch rebuilds the session`() = runTest {
         val a = client(alice)
         val b = client(bob)

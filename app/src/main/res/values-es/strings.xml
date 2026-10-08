@@ -110,4 +110,13 @@
     <string name="listener_battery_exempt">Privee está exento de la optimización de batería de Android. Pueden seguir aplicándose otras restricciones del dispositivo.</string>
     <string name="listener_settings_unavailable">Android no ha podido abrir estos ajustes. Abre manualmente los ajustes de la aplicación Privee.</string>
     <string name="listener_preference_failed">No se ha podido guardar el ajuste de escucha en segundo plano. Vuelve a intentarlo.</string>
+    <string name="hint_add">Añadir pista</string>
+    <string name="hint_edit">Editar pista</string>
+    <string name="hint_title">Pista para %1$s</string>
+    <string name="hint_advice">Solo tú ves esta pista, y solo en este dispositivo. No escribas su nombre: cualquiera que desbloquee este dispositivo podría leerla.</string>
+    <string name="hint_label">Pista</string>
+    <string name="hint_placeholder">p. ej. club de lectura</string>
+    <string name="save">Guardar</string>
+    <string name="remove">Quitar</string>
+    <string name="hint_long_press">Mantén pulsada una conversación para añadir una pista privada.</string>
 </resources>

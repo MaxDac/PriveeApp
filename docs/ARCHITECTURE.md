@@ -45,6 +45,12 @@ container:
 
 Everything stored is encrypted by `EncryptedFileStorage`, using AES-GCM under a non-exportable Android Keystore key. All of it lives under `noBackupFilesDir`, so it is never included in backups.
 
+Conversation hints (a short private note on who a conversation is with) are
+stored only in `PeerMeta.hint` inside the Signal state. They never go to the
+server, push payloads or notifications. "Clear history" keeps them; signing
+out and "Forget device" drop them. The editor (`HintDialog`) always advises
+against writing the other person's name.
+
 ## Data flow
 
 ```mermaid

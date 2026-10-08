@@ -110,4 +110,13 @@
     <string name="listener_battery_exempt">Privee è esclusa dall\'ottimizzazione della batteria Android. Possono comunque applicarsi altre restrizioni del dispositivo.</string>
     <string name="listener_settings_unavailable">Android non ha potuto aprire queste impostazioni. Apri manualmente le impostazioni dell\'app Privee.</string>
     <string name="listener_preference_failed">Impossibile salvare l\'impostazione di ascolto in background. Riprova.</string>
+    <string name="hint_add">Aggiungi nota</string>
+    <string name="hint_edit">Modifica nota</string>
+    <string name="hint_title">Nota per %1$s</string>
+    <string name="hint_advice">Solo tu vedi questa nota, e solo su questo dispositivo. Non scrivere il suo nome: chiunque sblocchi questo dispositivo potrebbe leggerla.</string>
+    <string name="hint_label">Nota</string>
+    <string name="hint_placeholder">es. club del libro</string>
+    <string name="save">Salva</string>
+    <string name="remove">Rimuovi</string>
+    <string name="hint_long_press">Tieni premuta una conversazione per aggiungere una nota privata.</string>
 </resources>

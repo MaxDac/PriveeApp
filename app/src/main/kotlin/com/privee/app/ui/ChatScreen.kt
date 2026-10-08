@@ -130,6 +130,9 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
     val deviceState by session.deviceState.collectAsStateWithLifecycle()
     val connected by session.connected.collectAsStateWithLifecycle()
     var confirmClear by rememberSaveable { mutableStateOf(false) }
+    var editHint by rememberSaveable { mutableStateOf(false) }
+    val signalState by session.signal.changes.collectAsStateWithLifecycle()
+    val hint = peerId?.let { signalState.peers[it.toString()]?.hint }
 
     DisposableEffect(peerName) {
         container.activeChat.value = peerName
@@ -154,7 +157,22 @@ fun ChatScreen(container: AppContainer, session: PriveeSession, peerName: String
         onApprove = { vm.approve() },
         onDismissNotice = c::dismissNotice,
         onResetIdentity = { vm.viewModelScope.launch(Dispatchers.IO) { runCatching { session.resetIdentity() } } },
+        hint = hint,
+        onEditHint = { editHint = true },
     )
+
+    val hintPeer = peerId
+    if (editHint && hintPeer != null) {
+        HintDialog(
+            peerName = peerName,
+            current = hint,
+            onSave = { value ->
+                editHint = false
+                vm.viewModelScope.launch(Dispatchers.IO) { runCatching { session.signal.setPeerHint(hintPeer, value) } }
+            },
+            onDismiss = { editHint = false },
+        )
+    }
 
     if (vm.safetyNumberVisible) SafetyNumberDialog(peerName, vm.safetyNumber, vm::hideSafetyNumber)
 
@@ -196,6 +214,8 @@ fun ChatContent(
     onApprove: () -> Unit,
     onDismissNotice: () -> Unit,
     onResetIdentity: () -> Unit,
+    hint: String? = null,
+    onEditHint: () -> Unit = {},
 ) {
     var menu by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -213,6 +233,16 @@ fun ChatContent(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(peerName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                            hint?.let {
+                                Text(
+                                    it,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.testTag("chat-hint"),
+                                )
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ConnectionDot(connected)
                                 Spacer(Modifier.width(6.dp))
@@ -235,6 +265,15 @@ fun ChatContent(
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             ProtectedWindow()
+                            DropdownMenuItem(
+                                text = { Text(stringResource(if (hint == null) R.string.hint_add else R.string.hint_edit)) },
+                                onClick = {
+                                    menu = false
+                                    onEditHint()
+                                },
+                                enabled = hasPeer,
+                                modifier = Modifier.testTag("edit-hint"),
+                            )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.safety_number)) },
                                 onClick = {

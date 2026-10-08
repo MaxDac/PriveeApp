@@ -15,7 +15,7 @@ class RecentsTest {
     fun `lists named peers by their latest message`() {
         val state = SignalState(
             peers = mapOf(
-                "1" to PeerMeta(name = "alice-session"),
+                "1" to PeerMeta(name = "alice-session", hint = "book club"),
                 "2" to PeerMeta(name = "bob-session"),
                 "3" to PeerMeta(name = "carol-session"),
                 "4" to PeerMeta(),
@@ -30,9 +30,9 @@ class RecentsTest {
 
         assertEquals(
             listOf(
-                Recent("alice-session", "hello", 30, outgoing = true),
-                Recent("bob-session", "…", 20),
-                Recent("carol-session", null, 0),
+                Recent("alice-session", "hello", 30, outgoing = true, peerId = 1, hint = "book club"),
+                Recent("bob-session", "…", 20, peerId = 2),
+                Recent("carol-session", null, 0, peerId = 3),
             ),
             recents(state),
         )

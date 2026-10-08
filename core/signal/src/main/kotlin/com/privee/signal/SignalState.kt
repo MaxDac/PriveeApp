@@ -27,6 +27,8 @@ data class PeerMeta(
     val name: String? = null,
     val sessionEpoch: String? = null,
     val cursor: Cursor? = null,
+    /** Private note of the user about who this peer is. Never leaves the device. */
+    val hint: String? = null,
 )
 
 @Serializable
