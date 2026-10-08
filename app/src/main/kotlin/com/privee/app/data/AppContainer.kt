@@ -2,6 +2,7 @@ package com.privee.app.data
 
 import android.content.Context
 import com.privee.app.BuildConfig
+import com.privee.app.PriveeApplication
 import com.privee.app.push.PushRegistration
 import com.privee.app.push.BackgroundListening
 import com.privee.app.push.BackgroundMessageService
@@ -40,6 +41,8 @@ class ActiveServer(val config: ServerConfig, val api: PriveeApi, val directory: 
 
 /** Application-wide dependencies, the selected server and the signed-in session. */
 class AppContainer(private val context: Context) {
+    private val languages get() = (context.applicationContext as PriveeApplication).languages
+    val languageTag: String get() = languages.language.tag
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val listenerPreferences = context.getSharedPreferences("background-listening", Context.MODE_PRIVATE)
     val backgroundListening = BackgroundListening(listenerPreferences.getBoolean("enabled", false)) { enabled ->
@@ -91,7 +94,7 @@ class AppContainer(private val context: Context) {
      */
     suspend fun checkServer(address: String): ServerConfig {
         val url = ServerUrl.normalize(address, allowCleartext = BuildConfig.ALLOW_CLEARTEXT)
-        val info = fetchServerInfo(url, client)
+        val info = fetchServerInfo(url, client) { languages.language.tag }
         return ServerConfig(url, info.name)
     }
 
@@ -121,7 +124,7 @@ class AppContainer(private val context: Context) {
     private fun activate(config: ServerConfig): ActiveServer {
         val server = ActiveServer(
             config = config,
-            api = PriveeApi(config.url, client),
+            api = PriveeApi(config.url, client) { languages.language.tag },
             directory = serverDirectory(context, config),
         )
         _server.value = server

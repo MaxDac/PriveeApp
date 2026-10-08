@@ -3,6 +3,7 @@ package com.privee.app.push
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.IBinder
 import android.content.pm.ServiceInfo
@@ -26,6 +27,15 @@ class BackgroundMessageService : Service() {
     private var observing = false
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Notifications.createChannel(this)
+        if (!Notifications.updateListener(this, container.session.value?.connected?.value == true)) {
+            container.backgroundListening.startFailed()
+            stopSelf()
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         listeningSession = container.session.value

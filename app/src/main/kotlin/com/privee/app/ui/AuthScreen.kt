@@ -26,15 +26,20 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.privee.app.R
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,6 +54,15 @@ import kotlinx.coroutines.launch
 
 enum class AuthMode { Register, LogIn }
 
+enum class AuthProblem { InvalidCredentials, Http, Unreachable, Validation }
+
+fun authProblemResource(problem: AuthProblem): Int = when (problem) {
+    AuthProblem.InvalidCredentials -> R.string.auth_invalid
+    AuthProblem.Http -> R.string.http_error
+    AuthProblem.Unreachable -> R.string.auth_unreachable
+    AuthProblem.Validation -> R.string.validation_error
+}
+
 class AuthViewModel(
     private val container: AppContainer,
     private val server: ActiveServer,
@@ -59,10 +73,22 @@ class AuthViewModel(
     var quick by mutableStateOf(false)
     var busy by mutableStateOf(false)
         private set
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<AuthProblem?>(null)
+        private set
+    var errorStatus by mutableIntStateOf(0)
         private set
     var fieldErrors by mutableStateOf<Map<String, List<String>>>(emptyMap())
         private set
+    private var validationLanguage = container.languageTag
+    private var validationGeneration = 0
+
+    fun languageChanged(tag: String) {
+        if (validationLanguage == tag) return
+        validationLanguage = tag
+        validationGeneration++
+        fieldErrors = emptyMap()
+        if (error == AuthProblem.Validation) error = null
+    }
 
     val canSubmit: Boolean
         get() = !busy && (mode == AuthMode.Register || sessionName.isNotBlank()) && (quick || phrase.isNotBlank())
@@ -72,6 +98,8 @@ class AuthViewModel(
         busy = true
         error = null
         fieldErrors = emptyMap()
+        val requestLanguage = container.languageTag
+        val generation = validationGeneration
         viewModelScope.launch {
             try {
                 val result = when (mode) {
@@ -80,14 +108,19 @@ class AuthViewModel(
                 }
                 container.signedIn(server, result)
             } catch (e: ApiException) {
-                fieldErrors = e.errors
+                if (e.errors.isNotEmpty() &&
+                    (requestLanguage != container.languageTag || generation != validationGeneration)
+                ) return@launch
+                fieldErrors = e.errors.filterKeys { it == "session_name" || it == "recovery_phrase" }
+                errorStatus = e.status
                 error = when {
-                    e.errors.isNotEmpty() -> null
-                    e.status == 401 || e.status == 404 -> "Session name or recovery phrase is not correct."
-                    else -> e.error ?: "Something went wrong (HTTP ${e.status})."
+                    fieldErrors.isNotEmpty() -> null
+                    e.errors.isNotEmpty() -> AuthProblem.Validation
+                    e.status == 401 || e.status == 404 -> AuthProblem.InvalidCredentials
+                    else -> AuthProblem.Http
                 }
             } catch (_: Exception) {
-                error = "Cannot reach the server. Check your connection and try again."
+                error = AuthProblem.Unreachable
             } finally {
                 busy = false
             }
@@ -97,18 +130,23 @@ class AuthViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onBack: () -> Unit) {
+fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onLanguage: () -> Unit, onBack: () -> Unit) {
     val vm: AuthViewModel = viewModel(key = "${server.config.url}:${mode.name}") { AuthViewModel(container, server, mode) }
     val register = mode == AuthMode.Register
+    val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].toLanguageTag()
+    LaunchedEffect(language) { vm.languageChanged(language) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (register) "Create a session" else "Log in") },
+                title = { Text(stringResource(if (register) R.string.create_session else R.string.log_in)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
+                },
+                actions = {
+                    TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
@@ -124,11 +162,7 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                if (register) {
-                    "A session is your anonymous identity. Share its name with the people you want to talk to."
-                } else {
-                    "Use the session name and recovery phrase you chose when creating the session."
-                },
+                stringResource(if (register) R.string.register_description else R.string.login_description),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -136,11 +170,11 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
             OutlinedTextField(
                 value = vm.sessionName,
                 onValueChange = { vm.sessionName = it.trim() },
-                label = { Text(if (register) "Session name (optional)" else "Session name") },
+                label = { Text(stringResource(if (register) R.string.session_name_optional else R.string.session_name)) },
                 supportingText = {
                     val errors = vm.fieldErrors["session_name"]
                     Text(
-                        errors?.joinToString() ?: if (register) "24-72 letters, digits or dashes. Leave empty for a random one." else "",
+                        errors?.joinToString() ?: if (register) stringResource(R.string.session_name_hint) else "",
                     )
                 },
                 isError = vm.fieldErrors["session_name"] != null,
@@ -151,9 +185,9 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Quick session", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.quick_session), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "No recovery phrase: anyone who knows the name can log in.",
+                        stringResource(R.string.quick_session_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -165,9 +199,9 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
                 OutlinedTextField(
                     value = vm.phrase,
                     onValueChange = { vm.phrase = it },
-                    label = { Text("Recovery phrase") },
+                    label = { Text(stringResource(R.string.recovery_phrase)) },
                     supportingText = {
-                        Text(vm.fieldErrors["recovery_phrase"]?.joinToString() ?: "24-160 letters, spaces and punctuation.")
+                        Text(vm.fieldErrors["recovery_phrase"]?.joinToString() ?: stringResource(R.string.recovery_phrase_hint))
                     },
                     isError = vm.fieldErrors["recovery_phrase"] != null,
                     visualTransformation = PasswordVisualTransformation(),
@@ -177,7 +211,11 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
             }
 
             vm.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (it == AuthProblem.Http) stringResource(R.string.http_error, vm.errorStatus) else stringResource(authProblemResource(it)),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
 
             Spacer(Modifier.height(8.dp))
@@ -189,7 +227,7 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
                 if (vm.busy) {
                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 } else {
-                    Text(if (register) "Create session" else "Log in")
+                    Text(stringResource(if (register) R.string.create_session_button else R.string.log_in))
                 }
             }
         }

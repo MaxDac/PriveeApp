@@ -46,6 +46,33 @@ class PriveeApiTest {
     fun stop() = server.close()
 
     @Test
+    fun `evaluates the language for every request without changing the error envelope`() = runBlocking {
+        var language = "en"
+        api = PriveeApi(server.url("/").toString(), client) { language }
+        server.enqueue(MockResponse.Builder().code(422)
+            .body("""{"error":"invalid","errors":{"session_name":["has already been taken"]}}""").build())
+        val english = assertThrows<ApiException> { runBlocking { api.register("taken", "phrase", false) } }
+        assertEquals("invalid", english.error)
+        assertEquals("en", server.takeRequest().headers["Accept-Language"])
+        language = "pt-PT"
+        server.enqueue(MockResponse.Builder().code(422)
+            .body("""{"error":"invalid","errors":{"session_name":["já está em utilização"]}}""").build())
+        val portuguese = assertThrows<ApiException> { runBlocking { api.register("taken", "phrase", false) } }
+        assertEquals("invalid", portuguese.error)
+        assertEquals(listOf("já está em utilização"), portuguese.errors["session_name"])
+        assertEquals("pt-PT", server.takeRequest().headers["Accept-Language"])
+        assertEquals(422, portuguese.status)
+    }
+
+    @Test
+    fun `negotiates the language for anonymous server checks`() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(200)
+            .body("""{"service":"privee","api_version":1}""").build())
+        fetchServerInfo(server.url("/").toString(), client) { "fr" }
+        assertEquals("fr", server.takeRequest().headers["Accept-Language"])
+    }
+
+    @Test
     fun `registers a quick session`() = runBlocking {
         server.enqueue(
             MockResponse.Builder()

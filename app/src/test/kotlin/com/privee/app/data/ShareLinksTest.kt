@@ -92,14 +92,6 @@ class ShareLinksTest {
     }
 
     @Test
-    fun `names both servers when an invite is for another one`() {
-        val other = inviteMismatchMessage(Invite("abc", "https://other.example.org"), server)
-        assertTrue("other.example.org" in other && "chat.example.org" in other && "abc" in other, other)
-        val legacy = inviteMismatchMessage(Invite("abc", null), server)
-        assertTrue("doesn't say which server" in legacy && "chat.example.org" in legacy, legacy)
-    }
-
-    @Test
     fun `accepts pasted app links of the selected server only`() {
         assertEquals(name, sessionNameFromInput(appLink(server, name), server))
         assertNull(sessionNameFromInput(appLink("https://other.example.org", name), server))

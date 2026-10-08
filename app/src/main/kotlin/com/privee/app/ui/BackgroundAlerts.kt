@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,10 +49,10 @@ fun BackgroundAlerts(container: AppContainer, session: PriveeSession) {
     val running by listening.running.collectAsStateWithLifecycle()
     val failed by listening.failed.collectAsStateWithLifecycle()
     val connected by session.connected.collectAsStateWithLifecycle()
-    var dialog by remember { mutableStateOf(false) }
+    var dialog by rememberSaveable { mutableStateOf(false) }
     var allowed by remember { mutableStateOf(Notifications.listenerAllowed(context)) }
     var batteryExempt by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<Int?>(null) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         allowed = Notifications.listenerAllowed(context)

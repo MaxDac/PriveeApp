@@ -43,7 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,6 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.privee.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,42 +67,43 @@ import com.privee.signal.SignalState
 import kotlinx.coroutines.launch
 
 /** A conversation of the local history, for the home screen. */
-data class Recent(val peerName: String, val preview: String?, val ts: Long)
+data class Recent(val peerName: String, val preview: String?, val ts: Long, val outgoing: Boolean = false)
 
 fun recents(state: SignalState): List<Recent> {
     val last = state.history.values.groupBy { it.peerId }.mapValues { (_, rows) -> rows.maxBy { it.ts } }
     return state.peers.mapNotNull { (id, meta) ->
         val name = meta.name ?: return@mapNotNull null
         val row = last[id.toLongOrNull()]
-        val preview = row?.let { (if (it.direction == Direction.Out) "You: " else "") + (it.plaintext ?: "…") }
-        Recent(name, preview, row?.ts ?: 0)
+        val preview = row?.let { it.plaintext ?: "…" }
+        Recent(name, preview, row?.ts ?: 0, row?.direction == Direction.Out)
     }.sortedByDescending { it.ts }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (String) -> Unit) {
+fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -> Unit, onOpenChat: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by session.signal.changes.collectAsStateWithLifecycle()
     val connected by session.connected.collectAsStateWithLifecycle()
     val deviceState by session.deviceState.collectAsStateWithLifecycle()
-    var menu by remember { mutableStateOf(false) }
-    var confirmForget by remember { mutableStateOf(false) }
-    var peer by remember { mutableStateOf("") }
-    var peerError by remember { mutableStateOf(false) }
+    var menu by rememberSaveable { mutableStateOf(false) }
+    var confirmForget by rememberSaveable { mutableStateOf(false) }
+    var peer by rememberSaveable { mutableStateOf("") }
+    var peerError by rememberSaveable { mutableStateOf(false) }
     val ownName = session.account.session.sessionName
+    val shareText = stringResource(R.string.share_text, session.server.shareLink(ownName), session.server.appLink(ownName))
+    val shareTitle = stringResource(R.string.share_session)
 
     fun share() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(
                 Intent.EXTRA_TEXT,
-                "Talk to me privately on Privee: ${session.server.shareLink(ownName)}\n" +
-                    "In the Privee app: ${session.server.appLink(ownName)}",
+                shareText,
             )
         }
-        context.startActivity(Intent.createChooser(intent, "Share your session"))
+        context.startActivity(Intent.createChooser(intent, shareTitle))
     }
 
     fun open() {
@@ -117,18 +120,23 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Privee") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     IconButton(onClick = ::share, modifier = Modifier.testTag("share")) {
-                        Icon(Icons.Filled.Share, contentDescription = "Share your session")
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.share_session))
                     }
                     Box {
                         IconButton(onClick = { menu = true }, modifier = Modifier.testTag("menu")) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Log out") },
+                                text = { Text(stringResource(R.string.language)) },
+                                onClick = { menu = false; onLanguage() },
+                                modifier = Modifier.testTag("language"),
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.log_out)) },
                                 onClick = {
                                     menu = false
                                     scope.launch { container.signOut() }
@@ -136,7 +144,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                                 modifier = Modifier.testTag("logout"),
                             )
                             DropdownMenuItem(
-                                text = { Text("Forget this device") },
+                                text = { Text(stringResource(R.string.forget_device)) },
                                 onClick = {
                                     menu = false
                                     confirmForget = true
@@ -165,14 +173,14 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                             ConnectionDot(connected)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (connected) "Connected to ${session.server.config.label}" else "Connecting…",
+                                if (connected) stringResource(R.string.connected_server, session.server.config.label) else stringResource(R.string.connecting),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.testTag("server-status"),
                             )
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("Your session", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.your_session), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text(
                             ownName,
                             style = MaterialTheme.typography.titleMedium,
@@ -190,7 +198,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
             }
 
             item {
-                Text("Start a conversation", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.start_conversation), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
@@ -199,10 +207,10 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                             peer = it
                             peerError = false
                         },
-                        placeholder = { Text("Session name or share link") },
+                        placeholder = { Text(stringResource(R.string.peer_hint)) },
                         isError = peerError,
                         supportingText = if (peerError) {
-                            { Text("Not a session name or a share link of this server.") }
+                            { Text(stringResource(R.string.peer_invalid)) }
                         } else {
                             null
                         },
@@ -213,7 +221,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
                     )
                     Spacer(Modifier.width(8.dp))
                     FilledIconButton(onClick = ::open, enabled = peer.isNotBlank(), modifier = Modifier.size(52.dp).testTag("open-chat")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Open conversation")
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.open_conversation))
                     }
                 }
             }
@@ -221,7 +229,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
             val list = recents(state)
             if (list.isNotEmpty()) {
                 item {
-                    Text("Conversations on this device", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                    Text(stringResource(R.string.conversations_device), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
                 }
             }
             items(list, key = { it.peerName }) { recent ->
@@ -233,17 +241,17 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onOpenChat: (Str
     if (confirmForget) {
         AlertDialog(
             onDismissRequest = { confirmForget = false },
-            title = { Text("Forget this device?") },
+            title = { Text(stringResource(R.string.forget_device_title)) },
             text = {
-                Text("Delete all encryption keys and history of this session from this device? You will need to reset encryption to chat again.")
+                Text(stringResource(R.string.forget_device_description))
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmForget = false
                     scope.launch { container.forgetDevice() }
-                }) { Text("Forget") }
+                }) { Text(stringResource(R.string.forget)) }
             },
-            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -259,13 +267,8 @@ fun ConnectionDot(connected: Boolean) {
 
 @Composable
 fun DeviceBanner(state: DeviceState, onReset: () -> Unit) {
-    val text = when (state) {
-        DeviceState.Superseded ->
-            "Encryption for this session was reset on another device, so this device can no longer send or receive messages."
-        else ->
-            "This device has no encryption keys for this session. Reset the encryption identity to continue; messages sent to your previous device will not be readable here."
-    }
-    var confirm by remember { mutableStateOf(false) }
+    val text = stringResource(if (state == DeviceState.Superseded) R.string.device_superseded else R.string.device_needs_reset)
+    var confirm by rememberSaveable { mutableStateOf(false) }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         modifier = Modifier.fillMaxWidth().testTag("device-banner"),
@@ -273,22 +276,22 @@ fun DeviceBanner(state: DeviceState, onReset: () -> Unit) {
         Column(Modifier.padding(16.dp)) {
             Text(text, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = { confirm = true }, modifier = Modifier.align(Alignment.End).testTag("reset-identity")) {
-                Text("Reset encryption", color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(stringResource(R.string.reset_encryption), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
     }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Reset encryption?") },
-            text = { Text("Your contacts will be asked to verify your new safety number.") },
+            title = { Text(stringResource(R.string.reset_encryption_title)) },
+            text = { Text(stringResource(R.string.reset_encryption_description)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
                     onReset()
-                }, modifier = Modifier.testTag("confirm-reset")) { Text("Reset") }
+                }, modifier = Modifier.testTag("confirm-reset")) { Text(stringResource(R.string.reset)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -310,7 +313,7 @@ private fun RecentRow(recent: Recent, onClick: () -> Unit) {
             Text(recent.peerName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             recent.preview?.let {
                 Text(
-                    it,
+                    if (recent.outgoing) stringResource(R.string.outgoing_preview, it) else it,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

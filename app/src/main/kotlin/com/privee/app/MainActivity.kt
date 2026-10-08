@@ -2,10 +2,11 @@ package com.privee.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,19 +17,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.privee.app.data.Invite
-import com.privee.app.data.inviteMismatchMessage
+import com.privee.app.data.serverLabel
 import com.privee.app.data.parseAppLink
 import com.privee.app.push.PushRegistration
+import com.privee.app.push.Notifications
+import com.privee.app.ui.LanguageDialog
 import com.privee.app.push.BackgroundMessageService
 import com.privee.app.ui.AuthMode
 import com.privee.app.ui.AuthScreen
@@ -38,9 +42,16 @@ import com.privee.app.ui.PriveeTheme
 import com.privee.app.ui.ServerScreen
 import com.privee.app.ui.WelcomeScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val container get() = (application as PriveeApplication).container
+    private val languages get() = (application as PriveeApplication).languages
     private var notificationDenied by mutableStateOf(false)
+
+    override fun attachBaseContext(newBase: Context) {
+        (newBase.applicationContext as PriveeApplication).languages.initialize()
+        super.attachBaseContext(newBase)
+    }
+
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             notificationDenied = !granted
@@ -50,11 +61,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        Notifications.createChannel(this)
         if (savedInstanceState == null) inviteFrom(intent)?.let { container.pendingInvite.value = it }
         val container = container
 
         setContent {
             PriveeTheme {
+                var languageDialog by rememberSaveable { mutableStateOf(false) }
+                val onLanguage = { languageDialog = true }
+                if (languageDialog) {
+                    LanguageDialog(
+                        selected = languages.language,
+                        onSelect = {
+                            languageDialog = false
+                            languages.select(it)
+                            Notifications.createChannel(this)
+                            if (container.backgroundListening.running.value &&
+                                !Notifications.updateListener(this, container.session.value?.connected?.value == true)
+                            ) {
+                                container.backgroundListening.startFailed()
+                                BackgroundMessageService.stop(this)
+                            }
+                        },
+                        onDismiss = { languageDialog = false },
+                    )
+                }
                 val server by container.server.collectAsStateWithLifecycle()
                 val session by container.session.collectAsStateWithLifecycle()
                 val invite by container.pendingInvite.collectAsStateWithLifecycle()
@@ -74,7 +105,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (selected == null) {
-                    ServerScreen(container)
+                    ServerScreen(container, onLanguage)
                 } else if (current == null) {
                     key(selected) {
                         val nav = rememberNavController()
@@ -87,13 +118,14 @@ class MainActivity : ComponentActivity() {
                                     onRegister = { nav.navigate("register") },
                                     onLogIn = { nav.navigate("login") },
                                     onChangeServer = container::changeServer,
+                                    onLanguage = onLanguage,
                                 )
                             }
                             composable("register") {
-                                AuthScreen(container, selected, AuthMode.Register, onBack = nav::popBackStack)
+                                AuthScreen(container, selected, AuthMode.Register, onLanguage, onBack = nav::popBackStack)
                             }
                             composable("login") {
-                                AuthScreen(container, selected, AuthMode.LogIn, onBack = nav::popBackStack)
+                                AuthScreen(container, selected, AuthMode.LogIn, onLanguage, onBack = nav::popBackStack)
                             }
                         }
                     }
@@ -101,7 +133,8 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(current) { onSignedIn() }
                     val nav = rememberNavController()
                     // An invite for another server (or not saying which) waits for the user's confirmation.
-                    var unconfirmed by remember(current) { mutableStateOf<Invite?>(null) }
+                    var unconfirmedName by rememberSaveable { mutableStateOf<String?>(null) }
+                    var unconfirmedServer by rememberSaveable { mutableStateOf<String?>(null) }
                     LaunchedEffect(current, invite) {
                         val requested = invite ?: return@LaunchedEffect
                         container.pendingInvite.value = null
@@ -109,35 +142,44 @@ class MainActivity : ComponentActivity() {
                         if (requested.isFor(current.server.config.url)) {
                             nav.navigate("chat/${requested.name}") { popUpTo("home") }
                         } else {
-                            unconfirmed = requested
+                            unconfirmedName = requested.name
+                            unconfirmedServer = requested.server
                         }
                     }
-                    unconfirmed?.let { requested ->
+                    unconfirmedName?.let { name ->
+                        val requested = Invite(name, unconfirmedServer)
                         AlertDialog(
-                            onDismissRequest = { unconfirmed = null },
-                            title = { Text("Different server") },
-                            text = { Text(inviteMismatchMessage(requested, current.server.config.url)) },
+                            onDismissRequest = { unconfirmedName = null },
+                            title = { Text(stringResource(R.string.different_server)) },
+                            text = {
+                                val selectedLabel = current.server.config.label
+                                Text(
+                                    requested.server?.let {
+                                        stringResource(R.string.invite_other_server, requested.name, serverLabel(it), selectedLabel)
+                                    } ?: stringResource(R.string.invite_unspecified_server, requested.name, selectedLabel),
+                                )
+                            },
                             confirmButton = {
                                 TextButton(
                                     onClick = {
-                                        unconfirmed = null
+                                        unconfirmedName = null
                                         nav.navigate("chat/${requested.name}") { popUpTo("home") }
                                     },
                                     modifier = Modifier.testTag("invite-open-anyway"),
-                                ) { Text("Open on ${current.server.config.label}") }
+                                ) { Text(stringResource(R.string.open_on_server, current.server.config.label)) }
                             },
                             dismissButton = {
-                                TextButton(onClick = { unconfirmed = null }) { Text("Cancel") }
+                                TextButton(onClick = { unconfirmedName = null }) { Text(stringResource(R.string.cancel)) }
                             },
                         )
                     }
                     NavHost(nav, startDestination = "home") {
                         composable("home") {
-                            HomeScreen(container, current, onOpenChat = { nav.navigate("chat/$it") })
+                            HomeScreen(container, current, onLanguage, onOpenChat = { nav.navigate("chat/$it") })
                         }
                         composable("chat/{name}") { entry ->
                             val name = entry.arguments?.getString("name").orEmpty()
-                            ChatScreen(container, current, name, onBack = nav::popBackStack)
+                            ChatScreen(container, current, name, onLanguage, onBack = nav::popBackStack)
                         }
                     }
                 }

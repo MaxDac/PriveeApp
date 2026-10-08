@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.privee.app.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -33,6 +35,7 @@ fun WelcomeScreen(
     onRegister: () -> Unit,
     onLogIn: () -> Unit,
     onChangeServer: () -> Unit,
+    onLanguage: () -> Unit,
 ) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -49,10 +52,10 @@ fun WelcomeScreen(
                 )
             }
             Spacer(Modifier.height(24.dp))
-            Text("Privee", style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall)
             Spacer(Modifier.height(12.dp))
             Text(
-                "Anonymous, end-to-end encrypted conversations. No phone number, no email.",
+                stringResource(R.string.welcome_description),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -60,7 +63,7 @@ fun WelcomeScreen(
             pendingPeer?.let {
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Create or open a session to talk to $it.",
+                    stringResource(R.string.pending_invite, it),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center,
@@ -68,15 +71,15 @@ fun WelcomeScreen(
             }
             Spacer(Modifier.height(40.dp))
             Button(onClick = onRegister, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("go-register")) {
-                Text("Create a session")
+                Text(stringResource(R.string.create_session))
             }
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = onLogIn, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("go-login")) {
-                Text("I already have a session")
+                Text(stringResource(R.string.existing_session))
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                "Server: $serverLabel",
+                stringResource(R.string.server_label, serverLabel),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -85,15 +88,16 @@ fun WelcomeScreen(
             // Chosen by the server itself, so only a secondary hint next to the address.
             serverName?.let {
                 Text(
-                    "Calls itself “$it”",
+                    stringResource(R.string.server_name, it),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
             }
             TextButton(onClick = onChangeServer, modifier = Modifier.testTag("change-server")) {
-                Text("Change server")
+                Text(stringResource(R.string.change_server))
             }
+            TextButton(onClick = onLanguage, modifier = Modifier.testTag("language")) { Text(stringResource(R.string.language)) }
         }
     }
 }

@@ -10,6 +10,7 @@ import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import com.privee.app.MainActivity
 import com.privee.app.PriveeApplication
+import com.privee.app.localizedContext
 import com.privee.app.data.EncryptedFileStorage
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -89,7 +90,7 @@ class BackgroundListenerInstrumentation : Instrumentation() {
                 await("connected status after repeated start") {
                     manager.activeNotifications.firstOrNull { it.id == Notifications.LISTENER_ID }
                         ?.notification?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ==
-                        targetContext.getString(com.privee.app.R.string.listener_connected)
+                        targetContext.localizedContext().getString(com.privee.app.R.string.listener_connected)
                 }
 
                 if (prepareRestart) {

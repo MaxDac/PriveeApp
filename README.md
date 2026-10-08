@@ -39,7 +39,7 @@ The runner refuses to replace an existing signed-in account. On Android 13+,
 grant notification permission before running:
 
 ```powershell
-.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest -PbackgroundListenerSmoke
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 adb install -r app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
 adb shell pm grant com.privee.app.debug android.permission.POST_NOTIFICATIONS
@@ -50,6 +50,8 @@ For earlier Android versions, omit the permission-grant command. Successful
 execution reports `Passed:` and `INSTRUMENTATION_CODE: -1`. This mock-server
 smoke test does not establish OEM-specific Doze behavior or guarantee delivery
 after process termination; check those separately on representative devices.
+The `backgroundListenerSmoke` build flag selects this standalone runner; omit
+it for the normal AndroidX/Compose tests, including `:app:connectedDebugAndroidTest`.
 
 For system restart checks, run the same runner with `-e prepareRestart true`.
 It deliberately retains its local test account and enabled listener. Reopen
@@ -71,6 +73,31 @@ Privee has no default server: anyone can deploy their own (fork) of [Privee](htt
 - Debug builds also accept `http://`, and suggest `http://10.0.2.2:4000`, a local `mix phx.server` as seen from the Android emulator.
 
 To switch servers, sign out and tap **Change server** on the welcome screen. The account and Signal state (keys, sessions and history) are stored per server, so one server never reuses another server's identity. Share links point to the selected server. The app link `privee://share/<session name>?server=<URL-encoded server>` opens a conversation directly only when its server is the selected one; otherwise (or for legacy links without `server`) the app names both servers and asks before opening. The welcome and home screens identify the server by its address; the `name` it reports about itself is only a secondary hint.
+
+## Language
+
+The app starts in **English**, regardless of the device language. Choose **Language** on the server,
+welcome or sign-in screen, or in the home/conversation overflow menu. The five explicit choices are
+English, Italian, European Portuguese (`pt-PT`), Spanish and French; there is no system-default choice.
+The language belongs to this installation, not to an account or server, and survives restarting,
+logging out, forgetting a device and changing servers. Switching language preserves entered values,
+conversation drafts and navigation. Previously received server validation errors are cleared; submit
+again to receive errors in the new language.
+
+Translations use Android resources and AppCompat per-app locales (including Android 13+ app-language
+settings). Message and background-listener notifications, their channels and the listener Stop action
+use the selected language too; switching language refreshes an active listener without disabling it.
+Background-alert settings dialogs also survive locale recreation. Each REST request sends
+the current `Accept-Language`, including anonymous server checks and authentication. Compatible servers
+translate the existing `errors[field]` arrays while keeping API v1, status codes and machine error values
+unchanged. Older servers remain usable, but may return untranslated validation text. The app renders
+other API failures as localized messages rather than displaying raw machine codes. User messages,
+session names, server addresses and encryption identifiers are never translated.
+
+Resource parity and placeholder checks run with the unit tests. Locale rendering, restart/recreation,
+validation clearing and notification-context checks can also be run on a connected Android emulator:
+`./gradlew :app:connectedDebugAndroidTest`. For Windows, use `.\gradlew.bat` instead of `./gradlew`;
+set `ANDROID_HOME` to the installed Android SDK if it is not already configured.
 
 ### Release signing
 

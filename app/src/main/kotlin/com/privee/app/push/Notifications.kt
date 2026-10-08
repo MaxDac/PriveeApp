@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.privee.app.MainActivity
 import com.privee.app.R
+import com.privee.app.localizedContext
 import com.privee.app.data.appLink
 
 /** Message notifications: they never contain message text, only the sender. */
@@ -31,16 +32,17 @@ object Notifications {
         signedIn && !foreground && !directListening
 
     fun createChannel(context: Context) {
+        val strings = context.localizedContext()
         val channel = NotificationChannel(
             CHANNEL,
-            context.getString(R.string.notification_channel_messages),
+            strings.getString(R.string.notification_channel_messages),
             NotificationManager.IMPORTANCE_HIGH,
         )
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 LISTENER_CHANNEL,
-                context.getString(R.string.notification_channel_listener),
+                strings.getString(R.string.notification_channel_listener),
                 NotificationManager.IMPORTANCE_LOW,
             ),
         )
@@ -65,6 +67,7 @@ object Notifications {
     }
 
     fun listener(context: Context, connected: Boolean): Notification {
+        val strings = context.localizedContext()
         val open = PendingIntent.getActivity(
             context, LISTENER_ID, Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -75,13 +78,13 @@ object Notifications {
         )
         return NotificationCompat.Builder(context, LISTENER_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.background_alerts))
-            .setContentText(context.getString(if (connected) R.string.listener_connected else R.string.listener_connecting))
+            .setContentTitle(strings.getString(R.string.background_alerts))
+            .setContentText(strings.getString(if (connected) R.string.listener_connected else R.string.listener_connecting))
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .addAction(0, context.getString(R.string.listener_stop), stop)
+            .addAction(0, strings.getString(R.string.listener_stop), stop)
             .build()
     }
 
@@ -101,6 +104,8 @@ object Notifications {
     }
 
     fun newMessage(context: Context, from: String?, serverUrl: String?) {
+        val strings = context.localizedContext()
+        createChannel(context)
         if (!messagesAllowed(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -114,14 +119,14 @@ object Notifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val title = if (from != null) {
-            context.getString(R.string.notification_new_message_from, from)
+            strings.getString(R.string.notification_new_message_from, from)
         } else {
-            context.getString(R.string.notification_new_message)
+            strings.getString(R.string.notification_new_message)
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(context.getString(R.string.notification_open_to_read))
+            .setContentText(strings.getString(R.string.notification_open_to_read))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
