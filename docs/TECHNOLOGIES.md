@@ -30,6 +30,8 @@ For how the pieces fit together see [ARCHITECTURE.md](ARCHITECTURE.md).
 | Local storage | Android Keystore + AES-GCM | platform | `EncryptedFileStorage`: one encrypted file per store, in `noBackupFilesDir` |
 | Push | UnifiedPush connector | 3.3.5 | No Google Play Services / FCM |
 | Tests | JUnit Jupiter (JUnit 6) | 6.1.3 | `./gradlew test`; `core/*` tests run on the plain JVM |
+| Tests | Robolectric (JUnit 4 via the vintage engine) | 4.17 | `app` JVM tests that need Android: notifications, window protections, screenshots |
+| Tests | Roborazzi | 1.76.0 | Renders the store screenshots from Compose on the JVM (`StoreScreenshotsTest`); records only with `-PrecordStoreScreenshots` |
 | Release tooling | Python 3 + PyYAML 6.0.3 | | `scripts/*.py`, tested by `scripts/tests` |
 | Release tooling | F-Droid buildserver image | `buildserver-trixie` (pinned digest) | `scripts/fdroid-rb-docker.sh`, the image fdroiddata CI uses |
 | Native build | Rust nightly + Android NDK r28c | `nightly-2025-09-24`, NDK `28.2.13676358` | Only for release builds; see below |
@@ -53,6 +55,11 @@ Messaging, so the app has no Google dependency and can ship on F-Droid.
   on the device.
 - While the app is open, the `session` channel's `message_received` event
   drives notifications instead.
+- Message notifications never name the sender: not in the title, the text, the
+  lock-screen (public) version or the notification tag. Other apps with
+  notification access can read all of those. All messages share one
+  notification id. See
+  [ARCHITECTURE.md#other-apps-on-the-device](ARCHITECTURE.md#other-apps-on-the-device).
 
 ## Encryption
 
@@ -107,3 +114,6 @@ See [RELEASING.md](RELEASING.md), [FDROID.md](FDROID.md) and
 | Room / SQLite | State is small; Keystore-encrypted files are enough |
 | Dependency injection frameworks | A hand-written `AppContainer` is enough |
 | phoenix.js / a third-party Phoenix client | A small in-house client keeps `core/net` pure Kotlin and dependency-light |
+| Play Integrity, root detection | Bypassable, and needs Google Play Services; see [ARCHITECTURE.md#other-apps-on-the-device](ARCHITECTURE.md#other-apps-on-the-device) |
+| StrongBox, unlocked-device-required keys | Too slow for frequent Signal-state writes; would break background fetches while locked |
+| Roborazzi Gradle plugin, screenshot verification in CI | The library alone is enough to record; pixels differ across operating systems |

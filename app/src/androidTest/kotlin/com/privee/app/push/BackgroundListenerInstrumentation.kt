@@ -106,24 +106,24 @@ class BackgroundListenerInstrumentation : Instrumentation() {
                 await("visible conversation notice") { notices.get() >= 1 }
                 runOnMainSync { }
                 Thread.sleep(250)
-                check(manager.activeNotifications.none { it.tag == "smoke-sender" }) { "Visible chat produced an alert" }
+                check(manager.activeNotifications.none { it.id == Notifications.MESSAGE_ID && it.tag == null }) { "Visible chat produced an alert" }
                 container.activeChat.value = null
                 server.emit()
-                await("foreground outside-chat alert") { manager.activeNotifications.any { it.tag == "smoke-sender" } }
-                manager.cancel("smoke-sender", 1)
+                await("foreground outside-chat alert") { manager.activeNotifications.any { it.id == Notifications.MESSAGE_ID && it.tag == null } }
+                manager.cancel(Notifications.MESSAGE_ID)
 
                 runOnMainSync { activity.moveTaskToBack(true) }
                 await("background lifecycle") { !container.foreground.value }
                 server.emit()
-                await("background message alert") { manager.activeNotifications.any { it.tag == "smoke-sender" } }
-                manager.cancel("smoke-sender", 1)
+                await("background message alert") { manager.activeNotifications.any { it.id == Notifications.MESSAGE_ID && it.tag == null } }
+                manager.cancel(Notifications.MESSAGE_ID)
 
                 try {
                     shell("input keyevent 223")
                     await("screen off") { !targetContext.getSystemService(PowerManager::class.java).isInteractive }
                     server.emit()
-                    await("screen-off message alert") { manager.activeNotifications.any { it.tag == "smoke-sender" } }
-                    manager.cancel("smoke-sender", 1)
+                    await("screen-off message alert") { manager.activeNotifications.any { it.id == Notifications.MESSAGE_ID && it.tag == null } }
+                    manager.cancel(Notifications.MESSAGE_ID)
                 } finally {
                     shell("input keyevent 224")
                     shell("wm dismiss-keyguard")
@@ -133,7 +133,7 @@ class BackgroundListenerInstrumentation : Instrumentation() {
                 server.disconnect()
                 await("socket reconnect and session rejoin") { session.connected.value && server.joined.get() > joinsBefore }
                 server.emit()
-                await("message alert after reconnection") { manager.activeNotifications.any { it.tag == "smoke-sender" } }
+                await("message alert after reconnection") { manager.activeNotifications.any { it.id == Notifications.MESSAGE_ID && it.tag == null } }
 
                 val status = manager.activeNotifications.first { it.id == Notifications.LISTENER_ID }
                 status.notification.actions.first().actionIntent.send()
@@ -142,7 +142,7 @@ class BackgroundListenerInstrumentation : Instrumentation() {
                         manager.activeNotifications.none { it.id == Notifications.LISTENER_ID }
                 }
                 check(!targetContext.getSharedPreferences("background-listening", 0).getBoolean("enabled", true))
-                manager.cancel("smoke-sender", 1)
+                manager.cancel(Notifications.MESSAGE_ID)
                 runOnMainSync {
                     targetContext.startActivity(Intent(targetContext, MainActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -152,7 +152,7 @@ class BackgroundListenerInstrumentation : Instrumentation() {
                 }
                 server.emit()
                 await("foreground chat still receiving after Stop") {
-                    manager.activeNotifications.any { it.tag == "smoke-sender" }
+                    manager.activeNotifications.any { it.id == Notifications.MESSAGE_ID && it.tag == null }
                 }
                 runOnMainSync {
                     container.backgroundListening.enable()

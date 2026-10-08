@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,7 +21,7 @@ import com.privee.app.R
 
 @Composable
 fun LanguageDialog(selected: AppLanguage, onSelect: (AppLanguage) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    PriveeAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.language)) },
         text = {

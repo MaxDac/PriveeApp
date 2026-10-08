@@ -35,7 +35,7 @@ one copy, copy it over the other, and run the skill-copy test.
 ## Commands
 
 ```bash
-./gradlew test :app:lintDebug :app:assembleDebug     # what CI runs (JDK 17+, SDK android-37.0, build-tools 36.0.0)
+./gradlew test :app:lintDebug :app:assembleDebug     # what CI runs (JDK 21, SDK android-37.0, build-tools 36.0.0)
 ./gradlew :core:net:test :core:signal:test           # fast JVM-only tests
 python3 -m unittest discover -s scripts/tests -v     # release tooling + skill-copy test
 python3 scripts/release_version.py --check-version-properties

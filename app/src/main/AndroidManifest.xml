@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Window.setHideOverlayWindows (Android 12+): no other app can draw over Privee. -->
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
 
     <application
         android:name=".PriveeApplication"

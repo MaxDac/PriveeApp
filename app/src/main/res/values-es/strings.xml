@@ -2,7 +2,6 @@
 <resources>
     <string name="notification_channel_messages">Mensajes</string>
     <string name="notification_new_message">Nuevo mensaje</string>
-    <string name="notification_new_message_from">Nuevo mensaje de %1$s</string>
     <string name="notification_open_to_read">Abre Privee para leerlo.</string>
     <string name="language">Idioma</string>
     <string name="back">Atrás</string>

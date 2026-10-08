@@ -198,7 +198,7 @@ follow [`libsignal/README.md`](../libsignal/README.md).
 ## Build and validate locally
 
 Debug builds and CI use the Maven libsignal artifacts and work on any OS with
-JDK 17 or 21 and Android SDK platform 37:
+JDK 21 (the Robolectric/Roborazzi tests need it) and Android SDK platform 37:
 
 ```text
 ./gradlew test lintDebug assembleDebug

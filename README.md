@@ -26,6 +26,25 @@ Requirements:
 
 Debug builds use the application id `com.privee.app.debug`.
 
+The app blocks screenshots and screen recording in every build, debug included
+(`FLAG_SECURE`). To refresh the store screenshots, render them on the JVM:
+
+```sh
+./gradlew :app:testDebugUnitTest --tests "com.privee.app.StoreScreenshotsTest" -PrecordStoreScreenshots
+```
+
+See the `store-screenshots` skill.
+
+### Protection from other apps on the device
+
+Besides blocking screen capture, the app:
+- hides other apps' overlays (Android 12+) or ignores touches through them (older versions);
+- lets only real accessibility tools such as TalkBack read its screen (Android 14+);
+- asks the keyboard not to learn what you type;
+- shows notifications that only say "New message", without the sender.
+
+Details and rejected options: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#other-apps-on-the-device).
+
 ### Background listener device smoke test
 
 The platform-only instrumentation runner uses a mock Phoenix server on the

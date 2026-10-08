@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -87,7 +86,6 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
     val state by session.signal.changes.collectAsStateWithLifecycle()
     val connected by session.connected.collectAsStateWithLifecycle()
     val deviceState by session.deviceState.collectAsStateWithLifecycle()
-    var menu by rememberSaveable { mutableStateOf(false) }
     var confirmForget by rememberSaveable { mutableStateOf(false) }
     var peer by rememberSaveable { mutableStateOf("") }
     var peerError by rememberSaveable { mutableStateOf(false) }
@@ -117,12 +115,74 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
         }
     }
 
+    HomeContent(
+        ownName = ownName,
+        serverLabel = session.server.config.label,
+        connected = connected,
+        deviceState = deviceState,
+        recents = recents(state),
+        peer = peer,
+        peerError = peerError,
+        onPeerChange = {
+            peer = it
+            peerError = false
+        },
+        onOpen = ::open,
+        onOpenChat = onOpenChat,
+        onShare = ::share,
+        onLanguage = onLanguage,
+        onLogOut = { scope.launch { container.signOut() } },
+        onForgetDevice = { confirmForget = true },
+        onResetIdentity = { scope.launch { runCatching { session.resetIdentity() } } },
+        alerts = { BackgroundAlerts(container, session) },
+    )
+
+    if (confirmForget) {
+        PriveeAlertDialog(
+            onDismissRequest = { confirmForget = false },
+            title = { Text(stringResource(R.string.forget_device_title)) },
+            text = {
+                Text(stringResource(R.string.forget_device_description))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmForget = false
+                    scope.launch { container.forgetDevice() }
+                }) { Text(stringResource(R.string.forget)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** [HomeScreen] without the session, so it renders from plain state (store screenshots). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeContent(
+    ownName: String,
+    serverLabel: String,
+    connected: Boolean,
+    deviceState: DeviceState?,
+    recents: List<Recent>,
+    peer: String,
+    peerError: Boolean,
+    onPeerChange: (String) -> Unit,
+    onOpen: () -> Unit,
+    onOpenChat: (String) -> Unit,
+    onShare: () -> Unit,
+    onLanguage: () -> Unit,
+    onLogOut: () -> Unit,
+    onForgetDevice: () -> Unit,
+    onResetIdentity: () -> Unit,
+    alerts: @Composable () -> Unit,
+) {
+    var menu by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
-                    IconButton(onClick = ::share, modifier = Modifier.testTag("share")) {
+                    IconButton(onClick = onShare, modifier = Modifier.testTag("share")) {
                         Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.share_session))
                     }
                     Box {
@@ -130,6 +190,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            ProtectedWindow()
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.language)) },
                                 onClick = { menu = false; onLanguage() },
@@ -139,7 +200,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                                 text = { Text(stringResource(R.string.log_out)) },
                                 onClick = {
                                     menu = false
-                                    scope.launch { container.signOut() }
+                                    onLogOut()
                                 },
                                 modifier = Modifier.testTag("logout"),
                             )
@@ -147,7 +208,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                                 text = { Text(stringResource(R.string.forget_device)) },
                                 onClick = {
                                     menu = false
-                                    confirmForget = true
+                                    onForgetDevice()
                                 },
                             )
                         }
@@ -162,7 +223,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { BackgroundAlerts(container, session) }
+            item { alerts() }
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -173,7 +234,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                             ConnectionDot(connected)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (connected) stringResource(R.string.connected_server, session.server.config.label) else stringResource(R.string.connecting),
+                                if (connected) stringResource(R.string.connected_server, serverLabel) else stringResource(R.string.connecting),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.testTag("server-status"),
@@ -193,7 +254,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
 
             if (deviceState == DeviceState.NeedsReset || deviceState == DeviceState.Superseded) {
                 item {
-                    DeviceBanner(deviceState!!) { scope.launch { runCatching { session.resetIdentity() } } }
+                    DeviceBanner(deviceState!!, onResetIdentity)
                 }
             }
 
@@ -203,10 +264,7 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = peer,
-                        onValueChange = {
-                            peer = it
-                            peerError = false
-                        },
+                        onValueChange = onPeerChange,
                         placeholder = { Text(stringResource(R.string.peer_hint)) },
                         isError = peerError,
                         supportingText = if (peerError) {
@@ -216,43 +274,25 @@ fun HomeScreen(container: AppContainer, session: PriveeSession, onLanguage: () -
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { open() }),
+                        keyboardActions = KeyboardActions(onGo = { onOpen() }),
                         modifier = Modifier.weight(1f).testTag("peer-name"),
                     )
                     Spacer(Modifier.width(8.dp))
-                    FilledIconButton(onClick = ::open, enabled = peer.isNotBlank(), modifier = Modifier.size(52.dp).testTag("open-chat")) {
+                    FilledIconButton(onClick = onOpen, enabled = peer.isNotBlank(), modifier = Modifier.size(52.dp).testTag("open-chat")) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.open_conversation))
                     }
                 }
             }
 
-            val list = recents(state)
-            if (list.isNotEmpty()) {
+            if (recents.isNotEmpty()) {
                 item {
                     Text(stringResource(R.string.conversations_device), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
                 }
             }
-            items(list, key = { it.peerName }) { recent ->
+            items(recents, key = { it.peerName }) { recent ->
                 RecentRow(recent) { onOpenChat(recent.peerName) }
             }
         }
-    }
-
-    if (confirmForget) {
-        AlertDialog(
-            onDismissRequest = { confirmForget = false },
-            title = { Text(stringResource(R.string.forget_device_title)) },
-            text = {
-                Text(stringResource(R.string.forget_device_description))
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmForget = false
-                    scope.launch { container.forgetDevice() }
-                }) { Text(stringResource(R.string.forget)) }
-            },
-            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text(stringResource(R.string.cancel)) } },
-        )
     }
 }
 
@@ -281,7 +321,7 @@ fun DeviceBanner(state: DeviceState, onReset: () -> Unit) {
         }
     }
     if (confirm) {
-        AlertDialog(
+        PriveeAlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text(stringResource(R.string.reset_encryption_title)) },
             text = { Text(stringResource(R.string.reset_encryption_description)) },

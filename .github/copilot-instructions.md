@@ -40,7 +40,7 @@ skill, update both copies; `scripts/tests/test_skill_copies.py` fails otherwise.
 
 ## Build and test
 
-- CI runs `./gradlew test :app:lintDebug :app:assembleDebug`, with JDK 17+, SDK `android-37.0` and build-tools `36.0.0`.
+- CI runs `./gradlew test :app:lintDebug :app:assembleDebug`, with JDK 21 (Robolectric needs it), SDK `android-37.0` and build-tools `36.0.0`.
 - Release tooling and the skill-copy check: `python3 -m unittest discover -s scripts/tests -v`.
 - An F-Droid-identical release build: `bash scripts/fdroid-rb-docker.sh out` (Docker, on Linux or WSL).
 - On Windows:

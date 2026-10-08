@@ -202,18 +202,19 @@ class LanguageUiTest {
                     assertEquals(context.getString(R.string.listener_stop), listener.actions.first().title.toString())
                 }
                 val manager = app.getSystemService(NotificationManager::class.java)
-                Notifications.newMessage(app, "sender-original", "https://chat.example.org")
-                val title = context.getString(R.string.notification_new_message_from, "sender-original")
-                compose.waitUntil(10_000) {
-                    manager.activeNotifications.any { it.tag == "sender-original" && it.notification.extras.getString(Notification.EXTRA_TITLE) == title }
-                }
-                Notifications.newMessage(app, null, null)
+                // Always generic: the sender is never in the title, the tag or the public version.
                 val genericTitle = context.getString(R.string.notification_new_message)
-                compose.waitUntil(10_000) {
-                    manager.activeNotifications.any { it.tag == "" && it.notification.extras.getString(Notification.EXTRA_TITLE) == genericTitle }
+                for ((from, server) in listOf("sender-original" to "https://chat.example.org", null to null)) {
+                    Notifications.newMessage(app, from, server)
+                    compose.waitUntil(10_000) {
+                        manager.activeNotifications.any {
+                            it.id == Notifications.MESSAGE_ID && it.tag == null &&
+                                it.notification.extras.getString(Notification.EXTRA_TITLE) == genericTitle &&
+                                it.notification.publicVersion?.extras?.getString(Notification.EXTRA_TITLE) == genericTitle
+                        }
+                    }
+                    manager.cancel(Notifications.MESSAGE_ID)
                 }
-                manager.cancel("sender-original", 1)
-                manager.cancel("", 1)
                 scenario!!.recreate()
                 compose.waitForIdle()
                 compose.onNodeWithText(heading).assertIsDisplayed()
