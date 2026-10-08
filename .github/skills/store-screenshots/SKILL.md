@@ -1,6 +1,6 @@
 ---
 name: store-screenshots
-description: Capture or refresh the F-Droid/store screenshots of Privee for Android (com.privee.app) using an Android emulator, a local Privee server and two app installs that chat with each other. Covers running the server from WSL, the debug build, a temporary second install, adb input and screencap on Windows, file naming under fastlane/metadata/android/en-US/images/phoneScreenshots, and cleanup. Use when asked to take, update or regenerate screenshots, store images or listing graphics, or to demo the app end to end on an emulator.
+description: Regenerate the F-Droid/store screenshots of Privee for Android (com.privee.app) with Roborazzi, which renders the real Compose screens on the JVM (Robolectric) with fake state, so no emulator or server is needed. Covers why adb screencap cannot be used (FLAG_SECURE), the record command, where the fake data lives (StoreScreenshotsTest), file naming under fastlane/metadata/android/en-US/images/phoneScreenshots, checking the images, and adding or changing a screen. Use when asked to take, update or regenerate screenshots, store images or listing graphics.
 ---
 
 # Store screenshots
@@ -15,88 +15,58 @@ F-Droid reads the listing from `fastlane/metadata/android/en-US/`. The phone scr
 | `4.png` | Conversation with a few messages |
 | `5.png` | Safety number |
 
-Background reading:
-- [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md), on how the app finds and checks a server;
-- the server's `local-dev-stack` skill (<https://github.com/MaxDac/Privee/tree/main/.claude/skills/local-dev-stack>).
-
 This file exists twice and the two copies must stay byte-identical:
 - `.claude/skills/store-screenshots/SKILL.md`;
 - `.github/skills/store-screenshots/SKILL.md`.
 
 `scripts/tests/test_skill_copies.py` enforces this.
 
-## 1. Start a current Privee server
+## Why not an emulator
 
-The app needs `GET /api/app/info`, so use an up-to-date Privee `main`, not an old checkout.
+`MainActivity` sets `FLAG_SECURE` in every build, debug included, with no toggle (see "Other apps on the device" in [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md)). `adb shell screencap`, the emulator's camera button and screen recorders all return black frames. Do not add a switch to turn it off.
 
-```bash
-# WSL, in a clone of https://github.com/MaxDac/Privee
-export PATH=$HOME/.local/share/mise/shims:$PATH
-mix setup                      # first time; needs Postgres (Windows service on localhost:5432 works)
-PRIVEE_INSTANCE_NAME="Privee" PRIVEE_SOURCE_URL="https://github.com/MaxDac/Privee" mix phx.server
-curl -s http://localhost:4000/api/app/info   # expect "service":"privee","api_version":1
-```
+Instead, `app/src/testDebug/kotlin/com/privee/app/StoreScreenshotsTest.kt` renders the real screen composables (`ServerContent`, `WelcomeScreen`, `HomeContent`, `ChatContent`, `SafetyNumberDialog`) under Robolectric with native graphics, and Roborazzi writes the PNGs. It runs on a Pixel 7 device profile, in English (`en-rUS`), in the light theme and in UTC, so the output does not depend on the machine.
 
-The emulator reaches the host at `http://10.0.2.2:4000`. Debug builds accept `http://` and suggest that address.
+## 1. Edit the fake data (optional)
 
-## 2. Start the emulator and install the debug app
+All content comes from constants and fake state at the top of `StoreScreenshotsTest`: the session names, the server URL and instance name, the messages and their times, and the safety number. Rules:
+- use generated-looking session names and `example.org` addresses only;
+- no real names, servers or personal data;
+- keep the conversation short and friendly so it fits on one screen.
 
-```powershell
-emulator -list-avds
-Start-Process emulator -ArgumentList '-avd','<avd>','-no-snapshot-save'
-adb wait-for-device
-./gradlew :app:installDebug          # com.privee.app.debug
-```
+If a screen needs state its `*Content` composable cannot take yet, hoist it into a parameter of that composable (the stateful wrapper keeps passing the real value). Do not add test-only code paths to the app.
 
-Use a clean, recent phone image (Pixel, light theme, English). Set a tidy status bar with demo mode:
+## 2. Record
 
-```bash
-adb shell settings put global sysui_demo_allowed 1
-adb shell am broadcast -a com.android.systemui.demo -e command enter
-adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200
-adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
-adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
-adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
-```
-
-## 3. Add a second install to chat with
-
-A conversation needs two sessions. Build a temporary second app id:
-
-1. In `app/build.gradle.kts`, change the debug `applicationIdSuffix = ".debug"` to `".debug2"`.
-2. Run `./gradlew :app:installDebug`.
-3. **Revert the change immediately** (`git checkout -- app/build.gradle.kts`) and check that `git status` is clean.
-
-Onboard both installs against `http://10.0.2.2:4000`, using "quick" sessions with generated names. Never use real names or a real server. Exchange a few friendly messages.
-
-- Messages are relayed live, so open the chat on both installs while sending.
-- Switch apps with `adb shell monkey -p com.privee.app.debug 1` (or `.debug2`).
-- `adb shell input text` needs spaces written as `%s`: `adb shell input text "Hi%sthere"`.
-- Find coordinates with `adb shell uiautomator dump /sdcard/ui.xml && adb pull /sdcard/ui.xml`.
-
-## 4. Capture
-
-On Windows, never pipe `adb exec-out screencap` through a PowerShell redirect, because it corrupts the PNG. Capture on the device and pull the file instead:
+From PowerShell on Windows (set `ANDROID_HOME` if `local.properties` is missing), or from a shell on Linux:
 
 ```powershell
-$dir = "fastlane/metadata/android/en-US/images/phoneScreenshots"
-adb shell screencap -p /sdcard/shot.png; adb pull /sdcard/shot.png "$dir/1.png"
+./gradlew :app:testDebugUnitTest --tests "com.privee.app.StoreScreenshotsTest" -PrecordStoreScreenshots
 ```
 
-Then check each image:
-- it is a valid PNG with portrait phone resolution;
-- it shows no keyboard, unless the screen is about typing;
-- no debug-only UI is visible;
-- it contains no personal data.
+`-PrecordStoreScreenshots` turns on `roborazzi.test.record` and points the output at `fastlane/metadata/android/en-US/images/phoneScreenshots/`, overwriting `1.png` to `5.png`. Without the flag (as in CI) the test only renders the screens and writes nothing. That still catches crashes, but pixels are never compared, because font rendering differs between operating systems.
 
-## 5. Clean up and commit
+## 3. Check the images
 
-```bash
-adb uninstall com.privee.app.debug2
-adb shell am broadcast -a com.android.systemui.demo -e command exit
-git status          # only the PNGs should change; app/build.gradle.kts must be clean
+Open each PNG and check that:
+- it is a portrait phone image, 1078x2399 for the Pixel 7 profile, the same size as the rest of the set;
+- the content is right, with no clipped text, and the dialog is visible in `5.png`;
+- no keyboard, debug-only UI or personal data is visible.
+
+The images have no status bar, because Robolectric renders only the app window. Dialogs fill the width a little more than on a real device. Both are expected.
+
+## 4. Add or change a screen
+
+1. Add a `@Test` to `StoreScreenshotsTest` that sets content with the stateless composable and calls `captureScreenRoboImage(File(dir, "N.png"))`.
+2. Keep the numbering contiguous and update the table at the top of this skill (both copies).
+3. Record, then check as above.
+
+## 5. Commit
+
+```powershell
+git status          # only the PNGs (and StoreScreenshotsTest, if edited) should change
 ```
-
-Stop the emulator and the server.
 
 Screenshots usually ship in the next release-bump PR (`chore(release): X.Y.Z`; skill `fdroid-release`), because F-Droid picks up metadata from the release tag. They can also go in a separate `docs(store): refresh screenshots` PR.
+
+For an end-to-end demo against a local server, follow the server's `local-dev-stack` skill (<https://github.com/MaxDac/Privee/tree/main/.claude/skills/local-dev-stack>), with the debug app on an emulator. Screen captures from that run will be black.
