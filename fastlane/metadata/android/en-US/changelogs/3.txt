@@ -1,0 +1,3 @@
+Choose English, Italian, European Portuguese, Spanish or French in the app, with your language saved across restarts and sign-out.
+Enable optional Google-free background message alerts with a persistent connection notification and Stop action.
+Includes dependency updates.
