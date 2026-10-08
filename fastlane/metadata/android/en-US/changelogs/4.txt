@@ -1,0 +1,2 @@
+Stronger protection against other apps on your phone: Privee can no longer be captured in screenshots or screen recordings, overlays are hidden or blocked on sensitive taps, non-assistive accessibility apps cannot read the screen on Android 14+, and the keyboard is asked not to learn what you type.
+Notifications now only say "New message", without the sender's name.
