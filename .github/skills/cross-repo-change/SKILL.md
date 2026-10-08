@@ -9,6 +9,9 @@ Privee is two repositories:
 - **MaxDac/Privee**: the Phoenix server and the website, with a libsignal WASM client.
 - **MaxDac/PriveeApp**: this Android app, with a libsignal Android client.
 
+Deployment is owned separately by [MaxDac/PriveeDeploy](https://github.com/MaxDac/PriveeDeploy).
+Privee runs CI only; merging a server PR does not deploy it.
+
 The canonical contract and change order live on the server side:
 - <https://github.com/MaxDac/Privee/blob/main/docs/cross-repo.md>: the contract, version rules and release order;
 - <https://github.com/MaxDac/Privee/blob/main/docs/client-api.md>: endpoints and channel events;
@@ -24,19 +27,36 @@ This file exists twice and the two copies must stay byte-identical:
 
 ## Why order matters
 
-Server deploys are immediate. App updates reach users days or weeks later, and F-Droid builds lag further, so old app versions stay in use for a long time. Therefore:
+Server deployment is manual and can reach users before an app update. App updates reach users days or weeks later, and F-Droid builds lag further, so old app versions stay in use for a long time. Therefore:
 
 1. **Server first, backward compatible.**
    - Add new endpoints, events and fields.
    - Keep old ones working.
    - New request fields must be optional.
    - Never change the meaning of an existing field.
-2. **Deploy the server** (`main` → Fly.io, server skill `deploy`).
+2. **Deploy the server separately.** Follow the server's
+   [`deploy-privee` skill](https://github.com/MaxDac/Privee/blob/main/.github/skills/deploy-privee/SKILL.md).
+   Check successful server CI for the full source commit SHA, obtain explicit
+   production-deploy confirmation, then trigger PriveeDeploy's manual workflow:
+
+   ```bash
+   gh workflow run deploy.yml -R MaxDac/PriveeDeploy -f ref=<full-source-sha>
+   ```
+
+   For forks, use the owner's deploy repository and verify its `PRIVEE_REPO`
+   setting matches the server repository. Wait for deployment to succeed and
+   verify `GET <server>/api/app/info` before releasing an app that needs it.
 3. **App change.** Use the new contract, and degrade gracefully on servers that do not have it yet: self-hosted instances update on their own schedule.
 4. **App release** (`fdroid-release` skill), then F-Droid picks it up.
 5. **Remove the old server behaviour** only after no supported app version uses it.
 
-A breaking change needs a new `api_version`. The server keeps serving the old one until old apps are gone. The app adds the new version to `ServerInfo.SUPPORTED_API_VERSIONS` and keeps accepting the old one while it still supports such servers.
+A breaking change needs an explicit migration plan, not just a new
+`api_version`. The discovery response reports one integer and released apps
+currently accept only `1`: changing it immediately locks those apps out.
+First ship an app that accepts both versions and works with the old server.
+Keep existing server behaviour working while users update, including F-Droid
+users. Only then deploy the API-version change, with an agreed compatibility
+window. Additive, backward-compatible changes keep API version `1`.
 
 ## App-side checklist
 
@@ -62,5 +82,5 @@ A breaking change needs a new `api_version`. The server keeps serving the old on
 
 - The server only stores public key material, ciphertext and metadata it needs for routing. It never stores plaintext or private keys.
 - Push payloads contain no content.
-- Every API change stays compatible with app versions already released, or bumps `api_version`.
+- Every API change stays compatible with released app versions; an API-version bump requires the staged migration above.
 - Both repos are AGPL-3.0-only. The server exposes its source URL (`PRIVEE_SOURCE_URL`), and forks must keep doing so.
