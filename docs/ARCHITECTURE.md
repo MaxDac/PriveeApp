@@ -114,10 +114,11 @@ The authoritative description of these endpoints and events is the server's
 | Server API version support | `ServerInfo.SUPPORTED_API_VERSIONS` + `ServerInfoTest` | README "Choosing a server" |
 | Protocol or key handling | `core/signal` + `SignalClientTest` | Server `e2e-encryption.md` (both clients must agree) |
 | Local storage format | `data/*Store.kt`, `SignalState` | Migrate old data (see `AppContainer.migrateLegacyData`) |
-| Notifications | `push/Notifications.kt`, `push/PriveePushService.kt` | |
+| Notifications | `push/Notifications.kt`, `push/PriveePushService.kt` | `MessageNotificationTest`; keep them generic (see [Other apps on the device](#other-apps-on-the-device)) |
+| Window, overlay, accessibility or keyboard protections | `ui/DeviceProtection.kt`, `MainActivity` | `DeviceProtectionTest` |
 | Dependency versions | `gradle/libs.versions.toml` | Skill `dependency-upgrade` |
 | libsignal version | `libs.versions.toml` + `libsignal/source.lock.json` | Skill `libsignal-upgrade`; server WASM version |
-| Store listing | `fastlane/metadata/android/en-US/` | Skill `store-screenshots` |
+| Store listing | `fastlane/metadata/android/en-US/`; screenshots from `StoreScreenshotsTest` (Roborazzi) | Skill `store-screenshots` |
 | Release | `version.properties` + `changelogs/<code>.txt` (release-bump PR only) | Skill `fdroid-release` |
 
 ## Changes that affect reproducible builds
@@ -140,9 +141,45 @@ Pay special attention to:
 If the Reproducibility check fails, follow
 [FDROID_VALIDATION.md](FDROID_VALIDATION.md) (diffoscope triage table).
 
+## Other apps on the device
+
+The threat model here is a malicious or over-privileged app on the same,
+**non-rooted** phone: one that records the screen, draws overlays to trick
+taps, reads the UI through an accessibility service, reads notifications
+through a notification listener, or learns what is typed through the keyboard.
+A rooted or compromised OS can read the app's memory, so it is out of scope.
+
+| Threat | Defence | Where |
+|---|---|---|
+| Screenshots, screen recording, casting, the recents thumbnail | `FLAG_SECURE` on the window, in **every** build including debug, with no toggle. Compose dialogs and popups inherit it (`SecureFlagPolicy.Inherit`, the default; never override it). | `protectWindow` in `ui/DeviceProtection.kt`, called by `MainActivity.onCreate` before `setContent` |
+| Overlays and tapjacking | API 31+: `Window.setHideOverlayWindows(true)` with the `HIDE_OVERLAY_WINDOWS` permission hides other apps' overlays while Privee is in front. API 26–30: `filterTouchesWhenObscured` on the decor view drops touches that pass through an overlay. | `protectWindow`, `protectViewTree`, `AndroidManifest.xml` |
+| Accessibility-service scraping | API 34+: `setAccessibilityDataSensitive(YES)` on the decor view and on every dialog and popup window. Only services that declare `isAccessibilityTool` (TalkBack, Switch Access and similar) can read the UI. Compose views inherit the flag. | `protectViewTree`; `ProtectedWindow()` in `PriveeAlertDialog` and the dropdown menus |
+| Keyboard learning | Every text field asks the keyboard not to learn from or remember input (`IME_FLAG_NO_PERSONALIZED_LEARNING`), through `InterceptPlatformTextInput` around the whole UI. The recovery phrase field is also `KeyboardType.Password`, so keyboards treat it as a password. | `NoPersonalizedLearning` in `ui/DeviceProtection.kt`, `AuthScreen` |
+| Notification listeners and the lock screen | Message notifications always say just "New message", with no sender in the title, text, public (lock screen) version or tag. They use one fixed id, so the count of distinct senders is hidden too. Tapping opens the latest sender's chat through a `PendingIntent`, which other apps cannot read. | `push/Notifications.kt` |
+
+Rules for new code:
+- show dialogs with `PriveeAlertDialog` and call `ProtectedWindow()` inside any other `Dialog`, `Popup` or `DropdownMenu` content;
+- never set `SecureFlagPolicy.SecureOff`;
+- never put a sender, message text or a value derived from them in a notification;
+- the app never writes to the clipboard; if that changes, mark the clip sensitive (`ClipDescription.EXTRA_IS_SENSITIVE`).
+
+Because of `FLAG_SECURE`, `adb screencap` returns black frames. Store
+screenshots are rendered on the JVM by Roborazzi instead (skill `store-screenshots`).
+
+Considered and rejected:
+
+| Option | Why not |
+|---|---|
+| StrongBox for the storage key | Signal state is written often, and StrongBox is slow. The Keystore key is already non-exportable and hardware-backed where the device supports it. |
+| `setUnlockedDeviceRequired` for the storage key | The key would be unusable while the phone is locked, which breaks background message fetches and notifications. |
+| Root or emulator detection, Play Integrity | Easy to bypass on a rooted device, which is out of scope anyway. Play Integrity needs Google Play Services, which breaks F-Droid and de-Googled users. |
+| Clipboard flags | The app never writes to the clipboard. |
+| Biometric or PIN app lock | Defends against someone holding the unlocked phone, not against other apps. A possible separate feature. |
+
 ## Invariants
 
 - Never change the release signing key or certificate. F-Droid publishes our APK only if it is signed with `AllowedAPKSigningKeys` (`ea586e3f…92f9`), and users cannot update across a key change.
 - No Google Play Services, Firebase or other proprietary dependencies.
 - No plaintext, keys or tokens in logs, notifications, push payloads or backups.
+- `FLAG_SECURE` stays on in every build, and notifications never name the sender (see [Other apps on the device](#other-apps-on-the-device)).
 - Per-server isolation: one server's identity, keys or history are never reused on another.
