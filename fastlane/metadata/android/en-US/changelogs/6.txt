@@ -1,0 +1,3 @@
+If a server has removed a session after a long time without sign-ins, the app now says so clearly and offers to create a new session, instead of reporting wrong credentials.
+Push notifications are registered again after every sign-in.
+Old local keys of a removed session are deleted.
