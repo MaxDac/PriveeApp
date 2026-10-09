@@ -49,6 +49,8 @@
     <string name="recovery_phrase">Frase de recuperación</string>
     <string name="recovery_phrase_hint">24–160 letras, espacios y signos de puntuación.</string>
     <string name="auth_invalid">El nombre de la sesión o la frase de recuperación no es correcto.</string>
+    <string name="auth_session_gone">Esta sesión ya no existe en este servidor: las sesiones se eliminan tras un periodo de inactividad. Si estás seguro de que la frase de recuperación es correcta, crea una nueva sesión.</string>
+    <string name="create_new_session">Crear una nueva sesión</string>
     <string name="http_error">Se ha producido un error (HTTP %1$d). Inténtalo de nuevo.</string>
     <string name="auth_unreachable">No se puede acceder al servidor. Comprueba la conexión e inténtalo de nuevo.</string>
     <string name="validation_error">Comprueba los valores introducidos e inténtalo de nuevo.</string>

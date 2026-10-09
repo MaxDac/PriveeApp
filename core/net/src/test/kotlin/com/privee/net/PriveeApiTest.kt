@@ -105,6 +105,15 @@ class PriveeApiTest {
         assertEquals("Bearer bad", server.takeRequest().headers["Authorization"])
     }
     @Test
+    fun `reports a refused log in, as for a session deleted after inactivity`() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(401).body("""{"error":"invalid_credentials"}""").build())
+        val refused = assertThrows<UnauthorizedException> { runBlocking { api.logIn("blue-fox", "phrase", quick = false) } }
+        assertEquals(401, refused.status)
+        assertEquals("invalid_credentials", refused.error)
+        assertEquals("/api/app/sessions/log_in", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
     fun `does not follow redirects that would re-send the recovery phrase`() {
         val elsewhere = MockWebServer().apply { start() }
         try {

@@ -37,7 +37,7 @@ class PriveePushService : PushService() {
 
     override fun onRegistrationFailed(reason: FailedReason, instance: String) = Unit
 
-    override fun onUnregistered(instance: String) = Unit
+    override fun onUnregistered(instance: String) = container.onPushUnregistered()
 
     override fun onDestroy() {
         scope.cancel()

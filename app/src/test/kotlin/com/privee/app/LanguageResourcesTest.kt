@@ -60,6 +60,7 @@ class LanguageResourcesTest {
     @Test
     fun `application errors are resources not raw API codes`() {
         assertEquals(R.string.auth_invalid, authProblemResource(AuthProblem.InvalidCredentials))
+        assertEquals(R.string.auth_session_gone, authProblemResource(AuthProblem.SessionGone))
         assertEquals(R.string.http_error, authProblemResource(AuthProblem.Http))
         assertEquals(R.string.auth_unreachable, authProblemResource(AuthProblem.Unreachable))
         assertEquals(R.string.validation_error, authProblemResource(AuthProblem.Validation))

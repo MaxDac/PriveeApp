@@ -3,6 +3,7 @@ package com.privee.app.data
 import android.content.Context
 import com.privee.app.BuildConfig
 import com.privee.app.PriveeApplication
+import com.privee.app.push.PushEndpointSync
 import com.privee.app.push.PushRegistration
 import com.privee.app.push.BackgroundListening
 import com.privee.app.push.BackgroundMessageService
@@ -28,6 +29,9 @@ import java.util.concurrent.TimeUnit
 class ActiveServer(val config: ServerConfig, val api: PriveeApi, val directory: File) {
     internal val accounts = AccountStore(EncryptedFileStorage(File(directory, ACCOUNT_FILE)))
 
+    /** The sessions signed into on this server from this device, see [KnownSessionStore]. */
+    val knownSessions = KnownSessionStore(EncryptedFileStorage(File(directory, KNOWN_SESSIONS_FILE)))
+
     /** The link that opens a conversation with [sessionName] on this server, in a browser. */
     fun shareLink(sessionName: String) = shareLink(config.url, sessionName)
 
@@ -36,6 +40,7 @@ class ActiveServer(val config: ServerConfig, val api: PriveeApi, val directory: 
 
     companion object {
         const val ACCOUNT_FILE = "account.bin"
+        const val KNOWN_SESSIONS_FILE = "sessions.bin"
     }
 }
 
@@ -58,6 +63,8 @@ class AppContainer(private val context: Context) {
         .followRedirects(false)
         .followSslRedirects(false)
         .build()
+
+    private val pushEndpoint = PushEndpointSync()
 
     private val servers = ServerStore(EncryptedFileStorage(File(context.noBackupFilesDir, "server.bin")))
 
@@ -137,9 +144,11 @@ class AppContainer(private val context: Context) {
         val account = Account(result.token, result.session)
         server.accounts.save(account)
         start(server, account)
+        scope.launch { pushEndpoint.signedIn { server.api.registerPush(account.token, it) } }
     }
 
     private fun start(server: ActiveServer, account: Account) {
+        forgetDeletedSession(server, account)
         val session = PriveeSession(server, account, client) {
             scope.launch { signOut(remote = false) }
         }
@@ -147,11 +156,26 @@ class AppContainer(private val context: Context) {
         session.start()
     }
 
+    /**
+     * Records the session as used on this server. When its name had another id,
+     * the server deleted that session (after inactivity) and the name was
+     * registered again: the Signal state kept for the old id is dropped.
+     */
+    private fun forgetDeletedSession(server: ActiveServer, account: Account) {
+        runCatching {
+            val deleted = server.knownSessions.record(account.session) ?: return
+            EncryptedFileStorage(PriveeSession.signalFile(server, deleted)).clear()
+        }
+    }
+
     /** Called by the push distributor with the endpoint of this installation. */
     suspend fun onPushEndpoint(endpoint: String) {
-        val session = _session.value ?: return
-        runCatching { session.server.api.registerPush(session.account.token, endpoint) }
+        val session = _session.value
+        pushEndpoint.update(endpoint, session?.let { { url -> it.server.api.registerPush(it.account.token, url) } })
     }
+
+    /** Called by the push distributor when this installation is unregistered. */
+    fun onPushUnregistered() = pushEndpoint.forget()
 
     /**
      * Signs out; the keys stay on the device for the next sign-in on the same server,
@@ -165,6 +189,7 @@ class AppContainer(private val context: Context) {
         session.stop()
         runCatching { session.signal.clearPeerHints() }
         PushRegistration.unregister(context)
+        pushEndpoint.forget()
         val api = session.server.api
         if (remote) {
             runCatching { api.unregisterPush(session.account.token) }
@@ -177,6 +202,7 @@ class AppContainer(private val context: Context) {
     suspend fun forgetDevice() {
         val session = _session.value ?: return
         session.signal.wipe()
+        runCatching { session.server.knownSessions.remove(session.account.session.sessionName) }
         signOut()
     }
 

@@ -22,6 +22,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -51,25 +52,41 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.privee.app.data.ActiveServer
 import com.privee.app.data.AppContainer
 import com.privee.net.ApiException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class AuthMode { Register, LogIn }
 
-enum class AuthProblem { InvalidCredentials, Http, Unreachable, Validation }
+enum class AuthProblem { InvalidCredentials, SessionGone, Http, Unreachable, Validation }
 
 fun authProblemResource(problem: AuthProblem): Int = when (problem) {
     AuthProblem.InvalidCredentials -> R.string.auth_invalid
+    AuthProblem.SessionGone -> R.string.auth_session_gone
     AuthProblem.Http -> R.string.http_error
     AuthProblem.Unreachable -> R.string.auth_unreachable
     AuthProblem.Validation -> R.string.validation_error
+}
+
+/**
+ * The problem of a failed sign-in without field errors. The server answers a
+ * log in to a deleted session like wrong credentials; when this device had
+ * signed into that session, it most likely expired after inactivity.
+ */
+fun failedAuthProblem(mode: AuthMode, status: Int, validation: Boolean, knownSession: Boolean): AuthProblem = when {
+    validation -> AuthProblem.Validation
+    status == 401 || status == 404 ->
+        if (mode == AuthMode.LogIn && knownSession) AuthProblem.SessionGone else AuthProblem.InvalidCredentials
+    else -> AuthProblem.Http
 }
 
 class AuthViewModel(
     private val container: AppContainer,
     private val server: ActiveServer,
     val mode: AuthMode,
+    initialSessionName: String = "",
 ) : ViewModel() {
-    var sessionName by mutableStateOf("")
+    var sessionName by mutableStateOf(initialSessionName)
     var phrase by mutableStateOf("")
     var quick by mutableStateOf(false)
     var busy by mutableStateOf(false)
@@ -77,6 +94,10 @@ class AuthViewModel(
     var error by mutableStateOf<AuthProblem?>(null)
         private set
     var errorStatus by mutableIntStateOf(0)
+        private set
+
+    /** The session name that no longer exists, when [error] is [AuthProblem.SessionGone]. */
+    var goneSessionName by mutableStateOf("")
         private set
     var fieldErrors by mutableStateOf<Map<String, List<String>>>(emptyMap())
         private set
@@ -101,6 +122,7 @@ class AuthViewModel(
         fieldErrors = emptyMap()
         val requestLanguage = container.languageTag
         val generation = validationGeneration
+        val requestName = sessionName.trim()
         viewModelScope.launch {
             try {
                 val result = when (mode) {
@@ -114,11 +136,11 @@ class AuthViewModel(
                 ) return@launch
                 fieldErrors = e.errors.filterKeys { it == "session_name" || it == "recovery_phrase" }
                 errorStatus = e.status
-                error = when {
-                    fieldErrors.isNotEmpty() -> null
-                    e.errors.isNotEmpty() -> AuthProblem.Validation
-                    e.status == 401 || e.status == 404 -> AuthProblem.InvalidCredentials
-                    else -> AuthProblem.Http
+                val knownSession = mode == AuthMode.LogIn && (e.status == 401 || e.status == 404) &&
+                    withContext(Dispatchers.IO) { runCatching { server.knownSessions.contains(requestName) }.getOrDefault(false) }
+                goneSessionName = requestName
+                error = if (fieldErrors.isNotEmpty()) null else {
+                    failedAuthProblem(mode, e.status, validation = e.errors.isNotEmpty(), knownSession = knownSession)
                 }
             } catch (_: Exception) {
                 error = AuthProblem.Unreachable
@@ -131,8 +153,18 @@ class AuthViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, onSettings: () -> Unit, onBack: () -> Unit) {
-    val vm: AuthViewModel = viewModel(key = "${server.config.url}:${mode.name}") { AuthViewModel(container, server, mode) }
+fun AuthScreen(
+    container: AppContainer,
+    server: ActiveServer,
+    mode: AuthMode,
+    onSettings: () -> Unit,
+    onBack: () -> Unit,
+    initialSessionName: String = "",
+    onCreateNew: (sessionName: String) -> Unit = {},
+) {
+    val vm: AuthViewModel = viewModel(key = "${server.config.url}:${mode.name}") {
+        AuthViewModel(container, server, mode, initialSessionName)
+    }
     val register = mode == AuthMode.Register
     val language = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].toLanguageTag()
     LaunchedEffect(language) { vm.languageChanged(language) }
@@ -222,6 +254,12 @@ fun AuthScreen(container: AppContainer, server: ActiveServer, mode: AuthMode, on
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (it == AuthProblem.SessionGone) {
+                    OutlinedButton(
+                        onClick = { onCreateNew(vm.goneSessionName) },
+                        modifier = Modifier.fillMaxWidth().testTag("create-new-session"),
+                    ) { Text(stringResource(R.string.create_new_session)) }
+                }
             }
 
             Spacer(Modifier.height(8.dp))
