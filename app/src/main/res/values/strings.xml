@@ -51,6 +51,8 @@
     <string name="recovery_phrase">Recovery phrase</string>
     <string name="recovery_phrase_hint">24–160 letters, spaces and punctuation.</string>
     <string name="auth_invalid">Session name or recovery phrase is not correct.</string>
+    <string name="auth_session_gone">This session no longer exists on this server: sessions are deleted after a period of inactivity. If you are sure the recovery phrase is right, create a new session.</string>
+    <string name="create_new_session">Create a new session</string>
     <string name="http_error">Something went wrong (HTTP %1$d). Please try again.</string>
     <string name="auth_unreachable">Cannot reach the server. Check your connection and try again.</string>
     <string name="validation_error">Check the entered values and try again.</string>

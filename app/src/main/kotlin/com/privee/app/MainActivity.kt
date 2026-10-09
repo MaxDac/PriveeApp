@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -23,9 +24,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.privee.app.data.Invite
 import com.privee.app.data.serverLabel
 import com.privee.app.data.parseAppLink
@@ -129,11 +132,22 @@ class MainActivity : AppCompatActivity() {
                                     onSettings = onSettings,
                                 )
                             }
-                            composable("register") {
-                                AuthScreen(container, selected, AuthMode.Register, onSettings, onBack = nav::popBackStack)
+                            composable(
+                                "register?name={name}",
+                                arguments = listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" }),
+                            ) { entry ->
+                                AuthScreen(
+                                    container, selected, AuthMode.Register, onSettings, onBack = nav::popBackStack,
+                                    initialSessionName = entry.arguments?.getString("name").orEmpty(),
+                                )
                             }
                             composable("login") {
-                                AuthScreen(container, selected, AuthMode.LogIn, onSettings, onBack = nav::popBackStack)
+                                AuthScreen(
+                                    container, selected, AuthMode.LogIn, onSettings, onBack = nav::popBackStack,
+                                    onCreateNew = { name ->
+                                        nav.navigate("register?name=${Uri.encode(name)}") { popUpTo("welcome") }
+                                    },
+                                )
                             }
                         }
                     }

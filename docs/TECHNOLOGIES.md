@@ -48,6 +48,9 @@ Messaging, so the app has no Google dependency and can ship on F-Droid.
 - `PushRegistration` registers with the distributor after sign-in.
   `PriveePushService.onNewEndpoint` sends the endpoint URL to the server
   (`PUT /api/app/push`); sign-out deletes it (`DELETE /api/app/push`).
+  Every new sign-in sends the known endpoint again (`PushEndpointSync`),
+  because the server drops it with the session, for example when it deletes
+  an inactive session.
 - The server's push is a **wake-up signal only**: it carries no message
   content and no sender. On a push, `PriveePushService.onMessage` shows a
   generic "new message" notification if the app is in the background. Message

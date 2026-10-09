@@ -102,6 +102,15 @@ sequenceDiagram
    | `DELETE push` | Remove the push endpoint |
 
    Authenticated requests carry the bearer token.
+
+   The server deletes a session after a period of inactivity (with its
+   tokens, push endpoint and keys), then answers its log in like wrong
+   credentials and lets anyone register the name again. `KnownSessionStore`
+   (`sessions.bin` in the server directory) remembers the names and ids
+   signed into from this device, so a refused log in to one of them says the
+   session no longer exists and offers to create a new one. When a known name
+   comes back with a new id, the old `signal-<id>.bin` is deleted.
+   "Forget device" removes the name.
 3. **Socket.** `PhoenixSocket` connects to `<server>/app/socket/websocket?vsn=2.0.0`, sending the token as a `Sec-WebSocket-Protocol` entry, as phoenix.js does. It heartbeats, reconnects with backoff, and rejoins channels.
 4. **Keys.** These run on the `session` channel. `SignalClient` reconciles keys with `signal_status` and publishes them through:
    - `publish_identity` and `reset_identity`;
